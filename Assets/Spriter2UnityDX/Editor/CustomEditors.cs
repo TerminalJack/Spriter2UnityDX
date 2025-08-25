@@ -1,11 +1,13 @@
-﻿using UnityEngine;
+﻿#if false
+
+using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
 using System.Reflection;
 using System.Collections;
 
 namespace Spriter2UnityDX.Editors {
-	[CustomEditor (typeof(EntityRenderer)), CanEditMultipleObjects]
+	[CustomEditor(typeof(EntityRenderer)), CanEditMultipleObjects]
 	public class ERenderEdit : Editor {
 		private EntityRenderer renderer;
 		private string[] layerNames;
@@ -47,3 +49,5 @@ namespace Spriter2UnityDX.Editors {
 		}
 	}
 }
+
+#endif

@@ -1,6 +1,8 @@
 # Spriter2UnityDX
 Converts Spriter .scml files to Unity prefabs
 
+This is a custom fork that adds a lot of new functionality.  Stay tuned for more information.
+
 Version 1.0.4
 
 Download the Unity Package here: https://github.com/Dharengo/Spriter2UnityDX/raw/master/Packages/Spriter2UnityDX.unitypackage

@@ -1,39 +1,40 @@
 ﻿using UnityEngine;
-using System;
-using System.Collections;
 
-namespace Spriter2UnityDX {
-	[RequireComponent (typeof(SpriteRenderer)), ExecuteInEditMode, DisallowMultipleComponent, AddComponentMenu("")]
-	public class SortingOrderUpdater : MonoBehaviour {
-		private Transform trans;
-		private SpriteRenderer srenderer;
+namespace Spriter2UnityDX
+{
+    [ExecuteInEditMode]
+    public class SortingOrderUpdater : MonoBehaviour
+    {
+        private SpriteRenderer _spriteRendererComponent;
 
-		public int SpriteCount { get; set; }
-		private int sor;
-		public int SortingOrder {
-			get { return sor; }
-			set { 
-				sor = value;
-				UpdateSortingOrder ();
-			}
-		}
-		private float z_index = float.NaN;
+        private int _sortingOrder;
 
-		private void UpdateSortingOrder () {
-			if (srenderer) srenderer.sortingOrder = (int)(z_index * -1000) + sor - SpriteCount;
-		}
+        public int SortingOrder
+        {
+            get { return _sortingOrder; }
+            set
+            {
+                _sortingOrder = value;
+                UpdateSortingOrder();
+            }
+        }
 
-		private void Awake () {
-			trans = transform;
-			srenderer = GetComponent<SpriteRenderer> ();
-		}
+        private void OnEnable()
+        {
+            // The SpriteRenderer is on this game object or a child.
+            _spriteRendererComponent = GetComponentInChildren<SpriteRenderer>(true); // true == includeInactive.
+        }
 
-		private void Update () {
-			var newZ = trans.localPosition.z;
-			if (newZ != z_index) {
-				z_index = newZ;
-				UpdateSortingOrder ();
-			}
-		}
-	}
+        void OnDidApplyAnimationProperties() => UpdateSortingOrder(); // Called right after Animation system writes properties
+        private void LateUpdate() => UpdateSortingOrder();
+
+        private void UpdateSortingOrder()
+        {
+            if (_spriteRendererComponent)
+            {
+                // The 'magic number' here also appears in ScmlSupport.cs.
+                _spriteRendererComponent.sortingOrder = Mathf.RoundToInt(-10000f * transform.localPosition.z);
+            }
+        }
+    }
 }

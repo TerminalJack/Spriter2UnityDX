@@ -7,7 +7,7 @@ namespace Spriter2UnityDX.Importing
     public class ScmlImportOptionsWindow : EditorWindow
     {
         public System.Action OnClose;
-        
+
         void OnEnable()
         {
             titleContent = new GUIContent("Import Options");
@@ -35,6 +35,6 @@ namespace Spriter2UnityDX.Importing
 
         public float pixelsPerUnit = 100f;
 
-        public bool useUnitySpriteSwapping;
+        public bool useUnitySpriteSwapping = true;
     }
 }
