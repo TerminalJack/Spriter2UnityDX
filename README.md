@@ -1,24 +1,39 @@
 # Spriter2UnityDX Reanimated 😎
 
->Note that this is a custom fork of the Spriter2UnityDX project.  It adds a lot of new functionality.  The main focus of the fork is on animation fidelity.  That is, matching Spriter's animation playback as much as practical.
+>re·an·i·mate <br>
+/rēˈanəˌmāt/ <br>
+verb <br>
+past tense: **reanimated**; past participle: **reanimated** <br>
+>   * restore to life or consciousness; revive. <br>
+>   * give fresh vigor or impetus to. <br>
 
-Note that this documentation is still a work in progress.
+This documentation is still a work in progress.
 
 ## Description
 Spriter2UnityDX helps you integrate Spriter .scml files into Unity.  It imports Spriter .scml files and produces the following as output:
 
 * **Prefabs** <br>
 One prefab will be generated for each of the entities in the .scml file.  The prefab's preview image will be generated based on the first frame of the entity's first animation.
-* **Animation controllers** <br>
-One animation controller will be generated for each of the entities.  An animation state will be created for each of the entity's animations.
+* **Animator controllers** <br>
+One animator controller will be generated for each of the entities.  An animation state will be created for each of the entity's animations.
 * **Animation clips** <br>
 One animation clip will be generated for each of an entity's animations.  These are standard Unity animation clips that can be played/scrubbed in-editor using Unity's Animator window.  If the structure of the Spriter file permits it, you can use Unity animation features such as crossfade and transition blending.
 
-## Where to get Spriter2UnityDX
-...
+>This is a custom fork of the Spriter2UnityDX project.  It adds a lot of new functionality.  The main focus of the fork is on animation fidelity.  That is, matching Spriter's animation playback as much as practical.
 
-## Installation
-...
+## Where to get Spriter2UnityDX and how to install it
+
+Grab the latest Unity package from [here.](https://github.com/TerminalJack/Spriter2UnityDX/releases)
+
+Unlike the Github repo (which is a complete Unity project), the Unity package will have only the files you need for integration into your own Unity project.
+
+Drag-and-drop the package into you project's `Project` window to install it.
+
+As an alternative, if you have already cloned the project repo then you can also install it by simply dragging and dropping the `Unity2SpriterDX` folder from your file browser into your Unity project's `Project` window.
+
+> At this time, the project's folder name or location can't be changed. That is, it must remain in the folder Assets/Spriter2UnityDX and can't be moved to another folder such as Assets/Plugins/Spriter2UnityDX. <br>
+<br>
+Only Unity 2D projects are supported at this time. An import may fail when you drop a Spriter project folder into a 3D project. A second attempt via Reimport *may* work.
 
 ## Quick start!
 
@@ -46,7 +61,7 @@ If you need to reimport a .scml file at any time, right-click the file and click
 
 ## Supported versions of Unity.
 
-The importer and the generated prefabs, animation controllers, animation clips, and the runtime library are all supported by Unity version 2019 and later.  The importer's output is **not** tied to the same version of Unity that produced it.  That is, you can produce the prefabs, animation controllers, and animation clips in Unity 2019 and use them as-is in Unity version 6.1 and vice-versa.
+The importer and the generated prefabs, animator controllers, animation clips, and the runtime library are all supported by Unity version 2019 and later.  The importer's output is **not** tied to the same version of Unity that produced it.  That is, you can produce the prefabs, animator controllers, and animation clips in Unity 2019 and use them as-is in Unity version 6.1 and vice-versa.
 
 ## Supported pipelines.
 
