@@ -640,7 +640,7 @@ namespace Spriter2UnityDX.Animations
         private void SetKeysWithMainlineBlending<T>(AnimationCurve curve, TimeLine timeLine, Func<T, float> infoValue,
             Animation animation) where T : SpatialInfo
         {
-            AnimationCurve timelineCurve = new();
+            AnimationCurve timelineCurve = new AnimationCurve();
             DoSetKeys(timelineCurve, timeLine, infoValue, animation); // The timeline curve without blending.
 
             List<AnimationCurve> allCurves = new List<AnimationCurve>();
@@ -707,7 +707,7 @@ namespace Spriter2UnityDX.Animations
 
                     float dt = 1f / (mlkDuration * samplesPerSecond);
 
-                    List<float> samples = new();
+                    List<float> samples = new List<float>();
 
                     for (float t = 0; t <= 1f; t += dt)
                     {
@@ -822,13 +822,12 @@ namespace Spriter2UnityDX.Animations
         }
 
         private float TweakTime(float t)
-        {   // Some of the animation curves that should be instant need to have 1-bit subtracted from their time's value
-            // so that the keyed property syncs-up with the other keyed properties.  This ensures that the time is just
-            // a little earlier than the other keys.
+        {   // Some of the animation curves that should be instant need to have a tiny amount subtracted from their
+            // time's value so that the keyed property syncs-up with the other keyed properties.  This ensures that the
+            // time is just a little earlier than the other keys.
             if (t > 0f)
             {
-                int bits = BitConverter.SingleToInt32Bits(t) - 1;
-                t = BitConverter.Int32BitsToSingle(bits);
+                t -= float.Epsilon;
             }
 
             return t;

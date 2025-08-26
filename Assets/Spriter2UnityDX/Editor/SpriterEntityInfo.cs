@@ -23,7 +23,7 @@ namespace Spriter2UnityDX.Entity
             public string virtualParentTransformName; // Set even if there isn't one so ones from prior imports can be found.
             public Transform virtualParentTransform; // The transform where the VirtualParent component is.
 
-            public List<string> parentBoneNames = new(); // Empty if there aren't any.
+            public List<string> parentBoneNames = new List<string>(); // Empty if there aren't any.
 
             public SpriterInfoBase(string _name, ObjectType _type)
             {
@@ -57,8 +57,8 @@ namespace Spriter2UnityDX.Entity
         }
 
         // Note!: Bones and objects can have the same name so don't try to mix these into one collection.
-        public Dictionary<string, SpriterObjectInfo> objectInfo = new();
-        public Dictionary<string, SpriterBoneInfo> boneInfo = new();
+        public Dictionary<string, SpriterObjectInfo> objectInfo = new Dictionary<string, SpriterObjectInfo>();
+        public Dictionary<string, SpriterBoneInfo> boneInfo = new Dictionary<string, SpriterBoneInfo>();
 
         public string EntityName { get { return _entityName;  } }
 

@@ -20,14 +20,14 @@ namespace Spriter2UnityDX.Importing
     [XmlRoot("spriter_data")]
     public class ScmlObject
     {   //Master class that holds all the other data
-        [XmlElement("folder")] public List<Folder> folders = new(); // <folder> tags
-        [XmlElement("entity")] public List<Entity> entities = new(); // <entity> tags
+        [XmlElement("folder")] public List<Folder> folders = new List<Folder>(); // <folder> tags
+        [XmlElement("entity")] public List<Entity> entities = new List<Entity>(); // <entity> tags
     }
 
     public class Folder : ScmlElement
     {
         [XmlAttribute] public string name { get; set; }
-        [XmlElement("file")] public List<File> files = new(); // <file> tags
+        [XmlElement("file")] public List<File> files = new List<File>(); // <file> tags
     }
 
     public class File : ScmlElement
@@ -55,14 +55,14 @@ namespace Spriter2UnityDX.Importing
             set { _name = EntityNameSanitizer.Sanitize(value); }
         }
 
-        [XmlElement("character_map")] public List<CharacterMap> characterMaps = new(); // <character_map> tags
-        [XmlElement("animation")] public List<Animation> animations = new(); // <animation> tags
+        [XmlElement("character_map")] public List<CharacterMap> characterMaps = new List<CharacterMap>(); // <character_map> tags
+        [XmlElement("animation")] public List<Animation> animations = new List<Animation>(); // <animation> tags
     }
 
     public class CharacterMap : ScmlElement
     {
         [XmlAttribute] public string name { get; set; }
-        [XmlElement("map")] public List<MapInstruction> maps = new(); // <map> tags
+        [XmlElement("map")] public List<MapInstruction> maps = new List<MapInstruction>(); // <map> tags
     }
 
     public class MapInstruction
@@ -102,8 +102,8 @@ namespace Spriter2UnityDX.Importing
 
         [XmlAttribute] public bool looping { get; set; } // enum : NO_LOOPING,LOOPING //Dengar.NOTE: the actual values are true and false, so it's a bool
         [XmlArray("mainline"), XmlArrayItem("key")]
-        public List<MainLineKey> mainlineKeys = new(); // <key> tags within a single <mainline> tag
-        [XmlElement("timeline")] public List<TimeLine> timelines = new(); // <timeline> tags
+        public List<MainLineKey> mainlineKeys = new List<MainLineKey>(); // <key> tags within a single <mainline> tag
+        [XmlElement("timeline")] public List<TimeLine> timelines = new List<TimeLine>(); // <timeline> tags
     }
 
     public class MainLineKey : ScmlElement
@@ -140,8 +140,8 @@ namespace Spriter2UnityDX.Importing
         // Use the following when getting (and especially setting) the time so that you know what units you're working in.
         public float time_s { get { return _time; } set { _time = value; }}
 
-        [XmlElement("bone_ref")] public List<Ref> boneRefs = new(); // <bone_ref> tags
-        [XmlElement("object_ref")] public List<Ref> objectRefs = new(); // <object_ref> tags
+        [XmlElement("bone_ref")] public List<Ref> boneRefs = new List<Ref>(); // <bone_ref> tags
+        [XmlElement("object_ref")] public List<Ref> objectRefs = new List<Ref>(); // <object_ref> tags
 
         [XmlAttribute] public CurveType curve_type { get; set; } // enum : INSTANT,LINEAR,QUADRATIC,CUBIC //Dengar.NOTE (again, no caps)
         [XmlAttribute] public float c1 { get; set; }
@@ -181,7 +181,7 @@ namespace Spriter2UnityDX.Importing
     {
         [XmlAttribute] public string name { get; set; }
         [XmlAttribute("object_type")] public ObjectType objectType { get; set; } // enum : SPRITE,BONE,BOX,POINT,SOUND,ENTITY,VARIABLE //Dengar.NOTE (except not in all caps)
-        [XmlElement("key")] public List<TimeLineKey> keys = new(); // <key> tags within <timeline> tags
+        [XmlElement("key")] public List<TimeLineKey> keys = new List<TimeLineKey>(); // <key> tags within <timeline> tags
     }
 
     public enum CurveType
