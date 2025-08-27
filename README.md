@@ -7,7 +7,7 @@ past tense: **reanimated**; past participle: **reanimated** <br>
 >   * restore to life or consciousness; revive. <br>
 >   * give fresh vigor or impetus to. <br>
 
-This documentation is still a work in progress.
+⚠️ This document is still a work in progress.
 
 ## Description
 Spriter2UnityDX helps you integrate Spriter projects into Unity.  It imports Spriter .scml files and the images that it references and produces the following as output:
@@ -19,17 +19,23 @@ One animator controller will be generated for each of the entities.  An animatio
 * **Animation clips** <br>
 One animation clip will be generated for each of an entity's animations.  These are standard Unity animation clips that can be played/scrubbed in-editor using Unity's Animator window.  If the structure of the Spriter file permits it, you can use Unity animation features such as crossfade and transition blending.
 
->This is a custom fork of the Spriter2UnityDX project.  It adds a lot of new functionality.  The main focus of the fork is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  It aims to be lightweight and allocation free.
+## Why this fork?
+
+This is a custom fork of the Spriter2UnityDX project.  It adds a lot of new functionality.  The main focus of the fork is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  It aims to be lightweight and allocation free.
 
 ## Where to get Spriter2UnityDX and how to install it
 
-Grab the latest Unity package from [here.](https://github.com/TerminalJack/Spriter2UnityDX/releases)
+You have two simple options for installation: grab the UnityPackage from Releases, or install directly from source.
 
-Unlike the Github repo (which is a complete Unity project), the Unity package will have only the files you need for integration into your own Unity project.
-
-Drag-and-drop the package into you project's `Project` window to install it.
-
-As an alternative, if you have already cloned the project repo then you can also install it by simply dragging and dropping the `Spriter2UnityDX` folder from your file browser into your Unity project's `Project` window.
+1. **Install via Unity Package**<br>
+    1. Grab the latest Unity package from [here.](https://github.com/TerminalJack/Spriter2UnityDX/releases) Unlike the Github repo (which is a complete Unity project), the Unity package will have only the files you need for integration into your own Unity project.<br>
+    2. Drag-and-drop the package into your project's `Project` window.<br>
+    3. In the import dialog, click `Import`.
+2. **Install from Source**<br>
+    1. Clone or download the full repo:<br>
+    `git clone https://github.com/TerminalJack/Spriter2UnityDX.git`<br>
+    2. In your OS file browser, locate the Spriter2UnityDX folder inside the repo.<br>
+    3. Drag-and-drop that folder into your Unity `Project` window.
 
 > At this time, the project's folder name or location can't be changed. That is, it must remain in the folder Assets/Spriter2UnityDX and can't be moved to another folder such as Assets/Plugins/Spriter2UnityDX.
 
