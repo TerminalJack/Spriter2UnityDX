@@ -19,7 +19,7 @@ One animator controller will be generated for each of the entities.  An animatio
 * **Animation clips** <br>
 One animation clip will be generated for each of an entity's animations.  These are standard Unity animation clips that can be played/scrubbed in-editor using Unity's Animator window.  If the structure of the Spriter file permits it, you can use Unity animation features such as crossfade and transition blending.
 
->This is a custom fork of the Spriter2UnityDX project.  It adds a lot of new functionality.  The main focus of the fork is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.
+>This is a custom fork of the Spriter2UnityDX project.  It adds a lot of new functionality.  The main focus of the fork is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  It aims to be lightweight and allocation free.
 
 ## Where to get Spriter2UnityDX and how to install it
 
@@ -29,7 +29,7 @@ Unlike the Github repo (which is a complete Unity project), the Unity package wi
 
 Drag-and-drop the package into you project's `Project` window to install it.
 
-As an alternative, if you have already cloned the project repo then you can also install it by simply dragging and dropping the `Unity2SpriterDX` folder from your file browser into your Unity project's `Project` window.
+As an alternative, if you have already cloned the project repo then you can also install it by simply dragging and dropping the `Spriter2UnityDX` folder from your file browser into your Unity project's `Project` window.
 
 > At this time, the project's folder name or location can't be changed. That is, it must remain in the folder Assets/Spriter2UnityDX and can't be moved to another folder such as Assets/Plugins/Spriter2UnityDX.
 
@@ -39,7 +39,7 @@ Once Spriter2UnityDX is installed you can import a Spriter project simply by dro
 
 >Only Unity 2D projects are supported at this time. An import may fail when you drop a Spriter project folder into a 3D project. A second attempt via Reimport *may* work.
 
-Dropping a Spriter project folder into Unity's `Project` windows will kick-off Unity's importers (for the image files) and, once Unity is done, it will hand control to Spriter2UnityDX to import the .scml file.  A window with a few import options will pop-up at this time.  For now, simply leave the import options as-is and click the `Done` button.
+Dropping a Spriter project folder into Unity's `Project` window will kick-off Unity's importers (for the image files) and, once Unity is done, it will hand control to Spriter2UnityDX to import the .scml file.  A window with a few import options will pop-up at this time.  For now, simply leave the import options as-is and click the `Done` button.
 
 This will import all of the contents from all of the .scml files that are found in the folder and its subfolders.  The importer will ignore Spriter's `autosave` files so don't worry about them being present during import.
 
@@ -85,7 +85,7 @@ The only runtime platforms that have been tested at this time are Windows and We
 
 The importer currently supports the following Spriter features:
 
-* **All Spriter easing curve types.**  Instant (aka constant), linear, quadratic, cubic, quartic, quintic, and bezier curves are all converted to Unity animation curves with high visual fidelity.
+* **All Spriter easing curve types.**  Instant (aka constant), linear, quadratic, cubic, quartic, quintic, and Bézier curves are all converted to Unity animation curves with high visual fidelity.
 * **Dynamic reparenting.**  Spriter allows the artist to reassign a bone/sprite's parent at any time of an animation.  The importer will emulate this functionality by creating a `virtual parent` for the bones and sprites that have more than one parent (across all of the entity's animations.)  This is also known as a `parent constraint` or `child of constraint` in animation applications.
 * **Non-default / dynamic pivots.**  Spriter allows a sprite's pivot to change at any time of an animation.  The importer fully supports this via a `dynamic pivot` component.
 * **Sort order or z-index.**  Sprites can change their sort order frame-by-frame.  This is fully supported via the Unity `Sprite Renderer's` `Order in layer` property.
@@ -150,13 +150,23 @@ Another option to fix this is to use Spriter Pro's `Save as resized project` fea
 
 >This is actually a bit more complicated than it is made out to be since this assumes that you are either a) supporting just a single resolution for your game, or b) will generate separate image sets (and atlases) for each of the resolutions you intend to support.  A good 'middle ground' is to use Spriter Pro's `Save as resized project` feature to generate pixel perfect images at you game's maximum supported resolution **and** enable mip maps.
 
-
 ## Caveats.
-...
+
+While the importer strives to convert your Spriter projects into Unity animations, it doesn't necessarily focus on making those animations easily editable in Unity.  You will likely find that it is better to continue using Spriter for animation creation and editing.
+
+## Known Issues.
+
+During an import, having a Spriter project open in the Spriter application can (infrequently) cause the import to fail.  You will get an error regarding file access.  You may need to close the Spriter application in this case.
+
+The project's folder name or location can't be changed.  That is, it must remain in the folder `Assets/Spriter2UnityDX` and can't be moved to another folder such as `Assets/Plugins/Spriter2UnityDX`.
+
+Only Unity 2D projects are supported.  An import may fail when you drop a Spriter project folder into a 3D project.  A second attempt via `Reimport` *may* work.
+
+There may be issues with key timing during parent and/or pivot changes.  This may not always be noticeable during normal playback because it happens for just one frame.  (Spriter projects have a framerate of **1000 frames per second!**)  Slowly scrubbing through the frames at the point of a parent/pivot change may reveal that the keys aren't properly synchronized.  For a single frame the affected sprite(s) will have an incorrect position, rotation and/or scale.  This can usually be corrected in the Unity `Animation` window by moving the master keyframe (the topmost key in the dopesheet) a single frame to the **right** and then back to the left.
 
 ## License.
 
-The fork of this project has the same license as the original.  The text of which is as follows:
+This fork has the same license as the original project.  The text of which is as follows:
 
 > This project is open source. Anyone can use any part of this code however they wish. Feel free to use this code in your own projects, or expand on this code. If you have any improvements to the code itself, please visit https://github.com/Dharengo/Spriter2UnityDX and share your suggestions by creating a fork
 -Dengar/Dharengo
@@ -169,6 +179,6 @@ I, [TerminalJack](https://github.com/TerminalJack), would like to thank the orig
 
 ### Why are the animation clips set to a sample rate of 1000?  Isn't that a little excessive?
 
-The sample rate is set to 1000 due to the fact that that is Spriter's effective sample rate.  In Spriter, there is nothing stopping the creator form putting keyframes just 1 millisecond apart.  In fact, this is quite common.  The creator will do this when they intend an animated properties to change instantly.
+The sample rate is set to 1000 due to the fact that that is Spriter's effective sample rate.  In Spriter, there is nothing stopping the creator from putting two keyframes just 1 millisecond apart.  In fact, this is quite common.  The creator will do this when they intend for an animated property to change instantly.
 
 Using the same sample rate as Spriter also allows Unity to be frame-for-frame identical to Spriter.  You will find the keys at the exact same frame in Unity as you do in Spriter.
