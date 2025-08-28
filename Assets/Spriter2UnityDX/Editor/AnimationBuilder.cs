@@ -351,10 +351,9 @@ namespace Spriter2UnityDX.Animations
                             }
                             else
                             {   // ! Can Unity's Sprite Library / Sprite Resolver replace this?
-                                // ! GetComponentInChildren()
                                 var swapper = rendererTransform.GetComponent<TextureController>();
                                 if (swapper == null)
-                                { //Add a Texture Controller if one doesn't already exist
+                                {   //Add a Texture Controller if one doesn't already exist
                                     swapper = rendererTransform.gameObject.AddComponent<TextureController>();
                                     var info = (SpriteInfo)defaultInfo;
                                     swapper.Sprites = new[] { Folders[info.folder][info.file] };

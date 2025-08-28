@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// This script exists to provide compatibility between a wide varity of Unity versions.
+// This script exists to provide compatibility between a wide variety of Unity versions.
 
 [ExecuteAlways]
 public class SpriteVisibility : MonoBehaviour

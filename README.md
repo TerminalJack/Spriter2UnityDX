@@ -117,7 +117,7 @@ The following Spriter features are not supported at this time:
 
 > Note about bone scales: Strictly speaking, the importer supports a bone changing its scale.  It will not *tween* (i.e. animate) a bone's scale, however.
 
-## Instructions for use.
+## Anatomy of the generated prefab.
 ...
 
 ## Runtime components.
@@ -132,11 +132,45 @@ When a Dynamic Pivot 2D component is used the sprite renderer will be placed on 
 
 ### `Sorting Order Updater`
 
+This component is responsible for updating its corresponding sprite renderer's `Order in Layer` property, where larger values indicate sprites that are closer to the camera.  The `Sorting Order Updater` component will either be on the same game object as the sprite renderer or, if the sprite requires a `Dynamic Pivot 2D` component, it will be on the same game object as the pivot component.
+
+The 'sorting order' roughly corresponds to Spriter's z-index.  Spriter's z-index (its value multiplied by -0.001, to be exact) is stored in the `localPosition.z` property of either the pivot's transform, if any, or the sprite render's transform.
+
+>Large values (negative *or* positive) aren't used so that the sprites stay within the camera's clipping space.
+
+This component updates the sprite renderer during `LateUpdate()`.  The value of `Order in Layer` will be in increments of 10.  This is to allow for custom sprite renderers to be mixed-in with those of the prefab.
+
 ### `Sprite Visibility`
+
+This component is responsible for enabling or disabling its corresponding sprite renderer.  Newer versions of Unity don't allow boolean properties to be animated so this component is basically a hack to get around that.
+
+The component's `isVisible` property will be set by animation curves when a sprite needs to be visible or not.  A value of 0 will hide the sprite.  A value of 1 will show it.
 
 ### `Texture Controller`
 
+>Whether `Texture Controllers` are created, or not, is determined at the time of import.  Uncheck the `Unity's native sprite swapping` checkbox to create texture controllers.
+
+When a sprite has more than one texture (across all animations) a `Texture Controller` component can be used as a kind of proxy that sits between the animation clips and the sprite renderer.  This comes in handy for when you want to do things such as 're-skin' your character or have different textures based on a status such as heath.
+
+When a sprite has more than one texture, *without* the texture controller component, animation clips will overwrite a sprite's texture with whatever is specified in the animation clip.  This is due to the fact that the clips animate the `SpriteRenderer.Sprite` property directly.
+
+*With* the texture controller component, animation clips will (indirectly) select the sprite renderer's texture based on the `Displayed Sprite` property, which is an index into the `Sprites` array.  You can then place your re-skinned textures into the `Sprites` array and not have to worry about the animation clips overwriting your customizations.
+
+Sprites that have only a single texture across all animations will not have a `Texture Controller` component.  In this case, `SpriteRenderer.Sprite` isn't being animated so you can simply put your custom texture directly into it.
+
 ### `Virtual Parent`
+
+If you're familiar with Parent Constraints or Child-of Constraints then you will already understand the purpose of the `Virtual Parent` component.
+
+When a transform has a virtual parent component, the component will make children of that transform behave as though they are children of a parent other than their actual parent.  This is how the importer deals with the fact that Spriter allows the creator to re-parent bones and sprites at any time during an animation.
+
+Unity animation clips require the paths to properties that it animates remain static.  For this reason, you can't move a game object/transform around in the hierarchy when it has properties that are being animated.  That is, you can't actually re-parent transforms via animation.
+
+Bones and sprites that have more than one parent (across all animations) will have a `Virtual Parent` component created to deal with switching between parents during animations.  The importer will populate the `Possible Parents` array and animation clips will select the appropriate parent via the `Parent Index` property.
+
+>Unity has a `Parent Constraint` component but it isn't used due to the fact that it doesn't work in-editor when playing/scrubbing animation clips.
+
+See the **Tips and tricks** section for some other handy uses for the `Virtual Parent` component.
 
 ## Tips and tricks.
 
@@ -162,7 +196,7 @@ Another option to fix this is to use Spriter Pro's `Save as resized project` fea
 
 >This is actually a bit more complicated than it is made out to be since this assumes that you are either a) supporting just a single resolution for your game, or b) will generate separate image sets (and atlases) for each of the resolutions you intend to support.  A good 'middle ground' is to use Spriter Pro's `Save as resized project` feature to generate pixel perfect images at you game's maximum supported resolution **and** enable mip maps.
 
-**Strategies for Keeping Customizations out of Generated Prefabs**
+**A Strategy for Keeping Customizations out of Generated Prefabs**
 
 Because it is likely that you will eventually need to regenerate a prefab, it is advised that you keep all customizations out of the prefab.  This way you will be able to simply delete the old prefab and reimport without fear of losing any customizations.
 
