@@ -37,7 +37,7 @@ You have two simple options for installation: grab the UnityPackage from Release
     2. In your OS file browser, locate the Spriter2UnityDX folder inside the repo.<br>
     3. Drag-and-drop that folder into your Unity `Project` window.
 
-> At this time, the project's folder name or location can't be changed. That is, it must remain in the folder Assets/Spriter2UnityDX and can't be moved to another folder such as Assets/Plugins/Spriter2UnityDX.
+> The default installation location is `Assets/Spriter2UnityDX` but you can rename the folder and/or move it into another folder such as `Assets/Plugins/` or `Assets/3rdParty`.
 
 ## Quick start!
 
@@ -45,7 +45,7 @@ Once Spriter2UnityDX is installed you can import a Spriter project simply by dro
 
 >Only Unity 2D projects are supported at this time. An import may fail when you drop a Spriter project folder into a 3D project. A second attempt via Reimport *may* work.
 
-Dropping a Spriter project folder into Unity's `Project` window will kick-off Unity's importers (for the image files) and, once Unity is done, it will hand control to Spriter2UnityDX to import the .scml file.  A window with a few import options will pop-up at this time.  For now, simply leave the import options as-is and click the `Done` button.
+Dropping a Spriter project folder into Unity's `Project` window will kick-off Unity's importers (for the image files) and, once Unity is done, it will hand control to Spriter2UnityDX to import the .scml file.  A window with a few import options will pop-up at this time.  For now, simply leave the import options as-is and click the `Import` button.
 
 This will import all of the contents from all of the .scml files that are found in the folder and its subfolders.  The importer will ignore Spriter's `autosave` files so don't worry about them being present during import.
 
@@ -69,7 +69,7 @@ If there have been drastic changes to the .scml file since the prefab was last g
 
 Finally, before you go and play with the newly generated prefabs, be wary when trying to use Unity's transition blending feature.  When you create a transition from one animator state to another, Unity will, by default, blend the two animations.
 
-For Spriter projects, the biggest factor as to whether this works or not depends on how different the bone hierarchy is between the two animations.  If they are different in any way then you will likely have sprites that go flying off in seemingly random directions during the transition.  This applies when using the `Animator.CrossFade()` method as well.  If you run into this issue then you will either need to change the bone hierarchy in Spriter or completely disable transition blending.
+For Spriter projects, the biggest factor as to whether this works or not depends on how different the bone hierarchy is between the two animations.  If they are different in any way then you will likely have sprites that go flying off in seemingly random directions during the transition.  This applies when using the `Animator.CrossFade()` method as well.  If you run into this issue then you will either need to change the bone hierarchy in Spriter or completely disable transition blending for the affected animator states.
 
 ## Supported versions of Unity.
 
@@ -94,7 +94,7 @@ The importer currently supports the following Spriter features:
 * **All Spriter easing curve types.**  Instant (aka constant), linear, quadratic, cubic, quartic, quintic, and Bézier curves are all converted to Unity animation curves with high visual fidelity.
 * **Dynamic reparenting.**  Spriter allows the artist to reassign a bone/sprite's parent at any time of an animation.  The importer will emulate this functionality by creating a `virtual parent` for the bones and sprites that have more than one parent (across all of the entity's animations.)  This is also known as a `parent constraint` or `child of constraint` in animation applications.
 * **Non-default / dynamic pivots.**  Spriter allows a sprite's pivot to change at any time of an animation.  The importer fully supports this via a `dynamic pivot` component.
-* **Sort order or z-index.**  Sprites can change their sort order frame-by-frame.  This is fully supported via the Unity `Sprite Renderer's` `Order in layer` property.
+* **Sort order or z-index.**  Sprites can change their sort order frame-by-frame.  This is fully supported via the `Sprite Renderer` `Order in layer` property.
 
 ## Unsupported Spriter features.
 
@@ -118,14 +118,20 @@ The following Spriter features are not supported at this time:
 > Note about bone scales: Strictly speaking, the importer supports a bone changing its scale.  It will not *tween* (i.e. animate) a bone's scale, however.
 
 ## Import options.
-...
 
+The `Spriter Import Options` window will appear whenever you either, a) drop a Spriter project into Unity's `Project` window, or, b) right-click an .scml file and select `Reimport`.
 
-## Anatomy of the generated prefab.
-...
+You'll be given the option to set the options shown in the figure below.
 
-## Details of an imported animation clip
-...
+![Import Options Window](Docs/Images/SpriterImportOptionsWindow.png)
+
+Once you have selected the appropriate options, click the `Import` button to proceed with the import.  Click `Cancel` to dismiss the window and cancel the import.
+
+Unless you have a specific need to change the `Pixels Per Unit` value, it is best to leave it as-is with its default value of 100.
+
+The `Native Sprite Swapping` checkbox should be disabled if you intend to use texture controllers.  See the description for the `Texture Controller` component for more information.
+
+The `Animation Import Style` has the two options: `Nested In Prefab` and `Separate Folder`.  If you select `Separate Folder`, a prefab's animation clips will be placed in a subfolder named "{*prefabName*}_Anims".
 
 ## Runtime components.
 
@@ -133,13 +139,17 @@ The following components are used at runtime (and in some cases, in-editor) to s
 
 ### `Dynamic Pivot 2D`
 
-A Dynamic Pivot 2D component will be used in the case where--if in any of an entity's animations--a sprite uses a pivot point that is different than its default.  The entity's animation clips will then have animation curves that set the pivot's `x` and `y` properties as appropriate.
+![Dynamic Pivot 2D Image](Docs/Images/TransformWithDynamicPivot.png)
 
-When a Dynamic Pivot 2D component is used the sprite renderer will be placed on a child transform and the pivot component will adjust its position to take the pivot point into account.  The animation curves that move, rotate, scale, and set the sprite's sort order will be done to the transform containing the pivot component and not the transform containing the sprite renderer, as is done normally.
+A Dynamic Pivot 2D component will be used in the case where--if in any of an entity's animations--a sprite uses a pivot point that is different than its default.  The entity's animation clips will then have animation curves that set the pivot's `X` and `Y` properties as appropriate.
+
+When a Dynamic Pivot 2D component is used the sprite renderer will be placed on a child transform and the pivot component will adjust the child transform's position to take the pivot point into account.  The animation curves that move, rotate, scale, and set the sprite's sort order will be done to the transform containing the pivot component and not the transform containing the sprite renderer, as is done normally.
 
 ### `Sorting Order Updater`
 
-This component is responsible for updating its corresponding sprite renderer's `Order in Layer` property, where larger values indicate sprites that are closer to the camera.  The `Sorting Order Updater` component will either be on the same game object as the sprite renderer or, if the sprite requires a `Dynamic Pivot 2D` component, it will be on the same game object as the pivot component.
+![Typical Sprite Renderer Example Image](Docs/Images/TypicalSpriteRendererExample.png)
+
+This component is responsible for updating its corresponding sprite renderer's `Order in Layer` property, where larger values indicate sprites that are closer to the camera.  The `Sorting Order Updater` component will either be on the same game object as the sprite renderer or, if the sprite requires a `Dynamic Pivot 2D` component, it will be on the same game object as the pivot component.  (See the image under the description of the `Dynamic Pivot 2D` component for an example of this.)
 
 The 'sorting order' roughly corresponds to Spriter's z-index.  Spriter's z-index (its value multiplied by -0.001, to be exact) is stored in the `localPosition.z` property of either the pivot's transform, if any, or the sprite render's transform.
 
@@ -149,11 +159,15 @@ This component updates the sprite renderer during `LateUpdate()`.  The value of 
 
 ### `Sprite Visibility`
 
+See the description of the `Sorting Order Updater` component for an image that includes the `Sprite Visibility` component.
+
 This component is responsible for enabling or disabling its corresponding sprite renderer.  Newer versions of Unity don't allow boolean properties to be animated so this component is basically a hack to get around that.
 
-The component's `isVisible` property will be set by animation curves when a sprite needs to be visible or not.  A value of 0 will hide the sprite.  A value of 1 will show it.
+The component's `Is Visible` property will be set by animation curves when a sprite needs to be visible or not.  A value of 0 will hide the sprite.  A value of 1 will show it.
 
 ### `Texture Controller`
+
+![Texture Controller Image](Docs/Images/SpriteRendererWithTextureController.png)
 
 >Whether `Texture Controllers` are created, or not, is determined at the time of import.  Uncheck the `Native Sprite Swapping` checkbox to create texture controllers.
 
@@ -166,6 +180,8 @@ When a sprite has more than one texture, *without* the texture controller compon
 Sprites that have only a single texture across all animations will not have a `Texture Controller` component.  In this case, `SpriteRenderer.Sprite` isn't being animated so you can simply put your custom texture directly into it.
 
 ### `Virtual Parent`
+
+![Virtual Parent Image](Docs/Images/TransformWithVirtualParent.png)
 
 If you're familiar with Parent Constraints or Child-of Constraints then you will already understand the purpose of the `Virtual Parent` component.
 
@@ -231,8 +247,6 @@ On the flip side, contracting an animation in Unity risks having the editor drop
 
 During an import, having a Spriter project open in the Spriter application can (infrequently) cause the import to fail.  You will get an error regarding file access.  You may need to close the Spriter application in this case.
 
-The project's folder name or location can't be changed.  That is, it must remain in the folder `Assets/Spriter2UnityDX` and can't be moved to another folder such as `Assets/Plugins/Spriter2UnityDX`.
-
 Only Unity 2D projects are supported.  An import may fail when you drop a Spriter project folder into a 3D project.  A second attempt via `Reimport` *may* work.
 
 There may be issues with key timing during parent and/or pivot changes.  This may not always be noticeable during normal playback because it happens for just one frame.  (Spriter projects have a framerate of **1000 frames per second!**)  Slowly scrubbing through the frames at the point of a parent/pivot change may reveal that the keys aren't properly synchronized.  For a single frame the affected sprite(s) will have an incorrect position, rotation and/or scale.  This can usually be corrected in the Unity `Animation` window by moving the master keyframe (the topmost key in the dopesheet) a single frame to the **right** and then back to the left.
@@ -252,6 +266,6 @@ I, [TerminalJack](https://github.com/TerminalJack), would like to thank the orig
 
 ### Why are the animation clips set to a sample rate of 1000?  Isn't that a little excessive?
 
-The sample rate is set to 1000 due to the fact that that is Spriter's effective sample rate.  In Spriter, there is nothing stopping the creator from putting two keyframes just 1 millisecond apart.  Experience has shown that Unity can and will drop keys when they are too close to each other.
+The sample rate is set to 1000 due to the fact that that is Spriter's effective sample rate.  In Spriter, there is nothing stopping the creator from putting two keyframes just 1 millisecond apart.  Experience has shown that when the sample rate is too low that Unity can and will drop keys when they are too close to each other.
 
 Using the same sample rate as Spriter also allows Unity to be frame-for-frame identical to Spriter.  You will find the keys at the exact same frame time in Unity as you do in Spriter.
