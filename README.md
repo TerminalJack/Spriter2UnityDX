@@ -117,7 +117,14 @@ The following Spriter features are not supported at this time:
 
 > Note about bone scales: Strictly speaking, the importer supports a bone changing its scale.  It will not *tween* (i.e. animate) a bone's scale, however.
 
+## Import options.
+...
+
+
 ## Anatomy of the generated prefab.
+...
+
+## Details of an imported animation clip
 ...
 
 ## Runtime components.
@@ -148,7 +155,7 @@ The component's `isVisible` property will be set by animation curves when a spri
 
 ### `Texture Controller`
 
->Whether `Texture Controllers` are created, or not, is determined at the time of import.  Uncheck the `Unity's native sprite swapping` checkbox to create texture controllers.
+>Whether `Texture Controllers` are created, or not, is determined at the time of import.  Uncheck the `Native Sprite Swapping` checkbox to create texture controllers.
 
 When a sprite has more than one texture (across all animations) a `Texture Controller` component can be used as a kind of proxy that sits between the animation clips and the sprite renderer.  This comes in handy for when you want to do things such as 're-skin' your character or have different textures based on a status such as heath.
 
@@ -212,6 +219,14 @@ If you find that you need to add something such as a collider or a sprite render
 
 While the importer strives to convert your Spriter projects into Unity animations, it doesn't necessarily focus on making those animations easy to edit in Unity.  You will likely find that it is better to continue using Spriter for animation creation and editing.
 
+If you need to expand or contract an animation, prefer to do so in Spriter rather than in Unity.  For parent and pivot changes, Spriter actually uses two keys that have the exact same time.
+
+Having two keys at the same frame time isn't possible in Unity so to handle these cases the importer will use two different keys.  At import time these keys are just half a millisecond apart but expanding an animation in Unity also means expanding the distance between these keys which can cause problems.
+
+On the flip side, contracting an animation in Unity risks having the editor drop keys that are too close to each other.  This is also one of the reasons why Spriter animation clips must be imported with a sample rate of 1000 frames per second.
+
+>Stretching and contracting an animation in Spriter has its risks as well.  Creators will often place a key just 1 millisecond after another with the intention of instantly changing the key value(s).  Stretching the animation in this case will instead cause the value to tween between the two keys.  So be mindful in either case.
+
 ## Known Issues.
 
 During an import, having a Spriter project open in the Spriter application can (infrequently) cause the import to fail.  You will get an error regarding file access.  You may need to close the Spriter application in this case.
@@ -237,6 +252,6 @@ I, [TerminalJack](https://github.com/TerminalJack), would like to thank the orig
 
 ### Why are the animation clips set to a sample rate of 1000?  Isn't that a little excessive?
 
-The sample rate is set to 1000 due to the fact that that is Spriter's effective sample rate.  In Spriter, there is nothing stopping the creator from putting two keyframes just 1 millisecond apart.  In fact, this is quite common.  The creator will do this when they intend for an animated property to change instantly.
+The sample rate is set to 1000 due to the fact that that is Spriter's effective sample rate.  In Spriter, there is nothing stopping the creator from putting two keyframes just 1 millisecond apart.  Experience has shown that Unity can and will drop keys when they are too close to each other.
 
-Using the same sample rate as Spriter also allows Unity to be frame-for-frame identical to Spriter.  You will find the keys at the exact same frame in Unity as you do in Spriter.
+Using the same sample rate as Spriter also allows Unity to be frame-for-frame identical to Spriter.  You will find the keys at the exact same frame time in Unity as you do in Spriter.

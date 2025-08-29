@@ -55,7 +55,7 @@ namespace Spriter2UnityDX.PostProcessing
                 {
                     ScmlImportOptionsWindow optionsWindow = EditorWindow.GetWindow<ScmlImportOptionsWindow>();
                     ScmlImportOptions.options = new ScmlImportOptions();
-                    optionsWindow.OnClose += () => ProcessFiles(filesToProcess);
+                    optionsWindow.OnImport += () => ProcessFiles(filesToProcess);
                 }
                 else
                 {

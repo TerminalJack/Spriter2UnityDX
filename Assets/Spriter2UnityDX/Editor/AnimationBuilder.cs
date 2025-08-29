@@ -66,12 +66,16 @@ namespace Spriter2UnityDX.Animations
 
         public Object[] GetOrigClips()
         {
-            switch (S2USettings.GetOrCreateSettings().ImportOption)
+            ScmlImportOptions.AnimationImportOption importOption = ScmlImportOptions.options != null
+                ? ScmlImportOptions.options.importOption
+                : ScmlImportOptions.AnimationImportOption.NestedInPrefab;
+
+            switch (importOption)
             {
-                case AnimationImportOption.NestedInPrefab:
+                case ScmlImportOptions.AnimationImportOption.NestedInPrefab:
                     return AssetDatabase.LoadAllAssetRepresentationsAtPath(PrefabPath);
 
-                case AnimationImportOption.SeparateFolder:
+                case ScmlImportOptions.AnimationImportOption.SeparateFolder:
                     return AssetDatabase.LoadAllAssetsAtPath(AnimationsPath);
             }
 
@@ -174,13 +178,17 @@ namespace Spriter2UnityDX.Animations
             }
             else
             {
-                switch (S2USettings.GetOrCreateSettings().ImportOption)
+                ScmlImportOptions.AnimationImportOption importOption = ScmlImportOptions.options != null
+                    ? ScmlImportOptions.options.importOption
+                    : ScmlImportOptions.AnimationImportOption.NestedInPrefab;
+
+                switch (importOption)
                 {
-                    case AnimationImportOption.NestedInPrefab:
+                    case ScmlImportOptions.AnimationImportOption.NestedInPrefab:
                         AssetDatabase.AddObjectToAsset(clip, PrefabPath); //Otherwise create a new one
                         break;
 
-                    case AnimationImportOption.SeparateFolder:
+                    case ScmlImportOptions.AnimationImportOption.SeparateFolder:
                         if (!AssetDatabase.IsValidFolder(AnimationsPath))
                         {
                             var splitIndex = AnimationsPath.LastIndexOf('/');

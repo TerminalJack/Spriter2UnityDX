@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿#if false // ! This is now defunct.  The single setting it had is now in the Import Options windows.
+
+using UnityEngine;
 using UnityEditor;
 using System.Collections;
 
@@ -55,3 +57,5 @@ namespace Spriter2UnityDX {
 
 	public enum AnimationImportOption : byte { NestedInPrefab, SeparateFolder }
 }
+
+#endif
