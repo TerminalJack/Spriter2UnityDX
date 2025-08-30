@@ -7,8 +7,6 @@ past tense: **reanimated**; past participle: **reanimated** <br>
 >   * restore to life or consciousness; revive. <br>
 >   * give fresh vigor or impetus to. <br>
 
-⚠️ This document is still a work in progress.
-
 ## Description
 Spriter2UnityDX helps you integrate Spriter projects into Unity.  It imports Spriter .scml files and the images that it references and produces the following as output:
 
@@ -37,11 +35,11 @@ You have two simple options for installation: grab the UnityPackage from Release
     2. In your OS file browser, locate the Spriter2UnityDX folder inside the repo.<br>
     3. Drag-and-drop that folder into your Unity `Project` window.
 
-> The default installation location is `Assets/Spriter2UnityDX` but you can rename the folder and/or move it into another folder such as `Assets/Plugins/` or `Assets/3rdParty`.
+> The default installation location is `Assets/Spriter2UnityDX` but you can rename the folder and/or move it into another folder such as `Assets/Plugins/` or `Assets/3rdParty/`.
 
 ## Quick start!
 
-Once Spriter2UnityDX is installed you can import a Spriter project simply by dropping the folder that contains the .scml file--**and** all of the images files needed by the .scml file--into the Unity `Project` window.
+Once Spriter2UnityDX is installed you can import a Spriter project simply by dropping the folder that contains the .scml file--**and** all of the image files needed by the .scml file--into the Unity `Project` window.
 
 >Only Unity 2D projects are supported at this time. An import may fail when you drop a Spriter project folder into a 3D project. A second attempt via Reimport *may* work.
 
@@ -200,6 +198,42 @@ Bones and sprites that have more than one parent (across all animations) will ha
 >Unity has a `Parent Constraint` component but it isn't used due to the fact that it doesn't work in-editor when playing/scrubbing animation clips.
 
 See the **Tips and tricks** section for some other handy uses for the `Virtual Parent` component.
+
+## The Prefab's Bind Pose
+
+The **bind pose** (also called the rest pose or default pose) is the reference state of a prefab before any animation is applied. It’s defined by the first frame of the entity’s first animation and also determines the prefab’s preview image.
+
+If a prefab has many virtual parents then some thought should be given to which animation is used to define the bind pose.  Ideally, you want to use a bind pose that will exploit a particular optimization in the `Virtual Parent` component.
+
+### What the Bind Pose Includes
+
+- Transform properties
+  - Position, rotation, scale
+- Rendering properties
+  - Sprite image, sorting order, visibility, alpha
+- Constraint properties
+  - Virtual parent assignments, pivot points
+
+### How Unity, the Importer, and Spriter Use the Bind Pose
+
+- When you drop a prefab into the Scene view, it appears in its bind pose.
+- Spriter doesn't have the concept of a bind pose but, so far as the importer is concerned, in the Spriter application, dragging an animation into the top-most row makes that animation's first frame the bind pose.
+- During import, the importer compares each animatable property against its bind-pose value. If a property never deviates then the importer skips generating an animation curve for it. At runtime, channels without curves automatically fall back to their bind pose values, reducing clip size, memory usage, and sampling overhead.
+
+### Virtual Parent Optimization
+
+During import, each `Virtual Parent` component is configured so that its "actual parent" in the hierarchy matches the parent defined in the first frame of the entity's first animation.
+
+- If `Parent Index == 0` (virtual parent equals actual parent), the component simply resets its transform.
+- This reset code path skips constraint solving entirely, offering a significant performance boost over full constraint evaluation.
+
+### Choosing the Best Bind Pose
+
+1. Identify the pose most representative of your common animations.
+2. Ensure virtual parents in that pose line up with their actual parents to trigger the reset-only code path.
+3. (Optional) Apply the same principle to pivot points when they’re in use.
+
+By selecting a bind pose that matches your typical animation scenarios, you maximize the use of these optimizations.
 
 ## Tips and tricks.
 
