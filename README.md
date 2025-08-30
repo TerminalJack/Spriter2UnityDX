@@ -49,7 +49,7 @@ Dropping a Spriter project folder into Unity's `Project` window will kick-off Un
 
 This will import all of the contents from all of the .scml files that are found in the folder and its subfolders.  The importer will ignore Spriter's `autosave` files so don't worry about them being present during import.
 
-The importer will write its generated output files (the prefabs, etc.) into the same folder as the corresponding .scml file.  Depending on import settings, animation clips can be imbedded in the prefab or written into a subfolder.
+The importer will write its generated output files (the prefabs, etc.) into the same folder as the corresponding .scml file.  Depending on import settings, animation clips can be embedded in the prefab or written into a subfolder.
 
 > Important!  Some Spriter .scml files contain **a lot** of information to process.  It can take several minutes (up to 15 minutes!) to do an import.  ***Be patient.***  Unity will be unresponsive at this time but be assured that Unity isn't 'locked up'.  If you're worried, you can open a file browser and monitor the importer's progress by checking for the presence of the importer's output files.  If possible, you should start with a small, simple Spriter project.
 
@@ -61,7 +61,13 @@ Drop one of these prefabs into the `Scene` view.  Open Unity's `Animation` windo
 
 >This assumes that that particular clip actually had an animation.  Creators wll often use one or more Spriter animations as a static guideline or template, from which they base their actual animations off of.  If the clip doesn't actually animate anything then try another one.
 
-Assuming that all goes well, you are ready to use the generated prefabs, animation clips, etc. in your next masterpiece.
+A quick and easy way to play through all of a prefab's animation clips is to use the `Clip Runner` component.  You'll find this component in the `Extras/` folder.  Put a `Clip Runner` component on the root of the game object.  (Where the `Animator` component is located.)
+
+![Clip Runner Component](Docs/Images/ClipRunner.png)
+
+Leave the properties as-is and run the scene.  (Leave the `Cross Fade` property unchecked, in particular.)  This will run each of the animation clips in the game view.
+
+Assuming that all has gone well, you are ready to use the generated prefabs, animation clips, etc. in your next masterpiece.
 
 If you need to reimport a .scml file at any time, right-click the file and click `Reimport`.  This will attempt to integrate any changes that have been made to the the .scml file into the existing prefabs and animator controllers.  The reimport will overwrite the animation clips but it will attempt to preserve any animation events that you have added.
 

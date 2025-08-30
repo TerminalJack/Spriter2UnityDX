@@ -2,29 +2,32 @@ using UnityEngine;
 
 // This script exists to provide compatibility between a wide variety of Unity versions.
 
-[ExecuteAlways]
-public class SpriteVisibility : MonoBehaviour
+namespace Spriter2UnityDX
 {
-    public float isVisible = 0f; // Bools aren't supported in the animator on newer versions of Unity so we get this hack.
-
-    private SpriteRenderer _spriteRenderer;
-
-    void OnEnable()
+    [ExecuteAlways]
+    public class SpriteVisibility : MonoBehaviour
     {
-        _spriteRenderer = GetComponent<SpriteRenderer>();
-        ApplyVisibility();
-    }
+        public float isVisible = 0f; // Bools aren't supported in the animator on newer versions of Unity so we get this hack.
 
-    void OnDidApplyAnimationProperties() => ApplyVisibility();
-    void Update() { if (!Application.isPlaying) ApplyVisibility(); }
-    void LateUpdate() { if (Application.isPlaying) ApplyVisibility(); }
+        private SpriteRenderer _spriteRenderer;
 
-    private void ApplyVisibility()
-    {
-        if (_spriteRenderer != null)
+        void OnEnable()
         {
-            isVisible = Mathf.RoundToInt(isVisible);
-            _spriteRenderer.enabled = isVisible != 0;
+            _spriteRenderer = GetComponent<SpriteRenderer>();
+            ApplyVisibility();
+        }
+
+        void OnDidApplyAnimationProperties() => ApplyVisibility();
+        void Update() { if (!Application.isPlaying) ApplyVisibility(); }
+        void LateUpdate() { if (Application.isPlaying) ApplyVisibility(); }
+
+        private void ApplyVisibility()
+        {
+            if (_spriteRenderer != null)
+            {
+                isVisible = Mathf.RoundToInt(isVisible);
+                _spriteRenderer.enabled = isVisible != 0;
+            }
         }
     }
 }
