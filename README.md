@@ -55,7 +55,7 @@ Once the import is complete, check the folder for newly created prefab files.  T
 
 If you don't see a preview image then be sure that you aren't trying to import the Spriter project into a 3D Unity project.  If you *are* then right-clicking the .scml file and clicking `Reimport` *may* work but, strictly speaking, 3D projects aren't supported at this time.
 
-Drop one of these prefabs into the `Scene` view.  Open Unity's `Animation` window.  Select the game object (the instantiated prefab) in the `Scene` view and select an animation clip in the `Animation` window.  Hit the play button (▶️) and the animation will play.
+Drop one of these prefabs into the `Scene` view.  Open Unity's `Animation` window.  Select the game object (the instantiated prefab) in the `Scene` view and select an animation clip in the `Animation` window.  Hit the play animation button (▶️) and the animation will play.
 
 >This assumes that that particular clip actually had an animation.  Creators wll often use one or more Spriter animations as a static guideline or template, from which they base their actual animations off of.  If the clip doesn't actually animate anything then try another one.
 
@@ -267,7 +267,7 @@ This approach treats the prefab as the read-only visual representation (aka `ski
 
 One approach is to make the prefab a child of another game object.  The root game object would be where all, or most, of the custom scripts are placed.
 
-If you find that you need to add something such as a collider or a sprite renderer to one of the model's transforms then it is advised that you, instead, create an empty transform as a child of the root, add a `virtual parent` component to it, and make the target transform (the transform you want the collider, sprite renderer, etc. attached to) the sole `Possible Parent` of the virtual parent.  Any components that you place on the virtual parent, or its children, will essentially be a child of the target's transform and move, rotate and scale based on it.
+If you find that you need to add something such as a collider or a sprite renderer to one of the model's transforms then it is advised that you, instead, create an empty transform as a child of the root, add a `Virtual Parent` component to it, and make the target transform (the transform you want the collider, sprite renderer, etc. attached to) the sole `Possible Parent` of the virtual parent.  Any components that you place on the virtual parent, or its children, will essentially be a child of the target's transform and move, rotate and scale based on it.
 
 >If you have added custom sprite renderers then be sure to 1) add these to the sprite atlas, and 2) move the `Sorting Group` component from the model's prefab up into the root game object.
 
@@ -277,7 +277,7 @@ While the importer strives to convert your Spriter projects into Unity animation
 
 If you need to expand or contract an animation, prefer to do so in Spriter rather than in Unity.  For parent and pivot changes, Spriter actually uses two keys that have the exact same time.
 
-Having two keys at the same frame time isn't possible in Unity so to handle these cases the importer will use two different keys.  At import time these keys are just half a millisecond apart but expanding an animation in Unity also means expanding the distance between these keys which can cause problems.
+Having two keys at the same frame time isn't possible in Unity so, to handle these cases, the importer will use two different keys that have--at import time--just half a millisecond of difference in their times.  The problem is that expanding an animation in Unity also means expanding the distance between these keys--which can cause problems.
 
 On the flip side, contracting an animation in Unity risks having the editor drop keys that are too close to each other.  This is also one of the reasons why Spriter animation clips must be imported with a sample rate of 1000 frames per second.
 

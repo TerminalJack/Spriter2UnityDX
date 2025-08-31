@@ -18,22 +18,28 @@ namespace Spriter2UnityDX.Extras
             RandomOrder
         }
 
+        [Tooltip("The number of seconds to play each clip.")]
         public float timePerClip = 5f;
+
+        [Tooltip("If enabled, the animations will blend when transitioning between each other.  This may " +
+            "cause visual anomalies in some cases.")]
         public bool crossFade = false;
+
+        [Tooltip("The order in which to play the clips.")]
         public ClipPlayOrder playOrder = ClipPlayOrder.RandomOrder;
 
         [Tooltip("Drag this around in-scene to move the label.")]
         public Transform labelAnchor;
 
-        private Vector3 _defaultLabelOffset = new Vector3(0f, -1.5f, 0f);
+        // Vertical pixel offset above/below the bottom of the prefab for initial placement of the label.
+        // A value of -30 means 30px down.  After creation, move the Label Anchor transform to make adjustments.
+        private float _defaultLabelYOffset = -30f;
 
         private List<AnimationClip> _clips = new List<AnimationClip>();
         private int _clipIndex;
 
         private Animator _animator;
         private Camera _mainCam;
-
-        private readonly System.Random _rng = new System.Random();
 
         void Reset()
         {
@@ -67,7 +73,7 @@ namespace Spriter2UnityDX.Extras
                     while (n > 1)
                     {
                         n--;
-                        int k = _rng.Next(n + 1);
+                        int k = Random.Range(0, n + 1);
 
                         AnimationClip temp = _clips[k];
                         _clips[k] = _clips[n];
@@ -120,57 +126,63 @@ namespace Spriter2UnityDX.Extras
             var go = transform.Find("LabelAnchor")?.gameObject ?? new GameObject("LabelAnchor");
             go.transform.SetParent(transform, false);
 
+            // World point of the bottom of the prefab
             float bottomLocalY = GetBottomMostLocalY();
-            go.transform.localPosition = new Vector3(0f, bottomLocalY, 0f) + _defaultLabelOffset;
+            Vector3 bottomWorld = transform.TransformPoint(0f, bottomLocalY, 0f);
+
+            // To screen-space, add pixel offset
+            Vector3 screenPt = _mainCam.WorldToScreenPoint(bottomWorld);
+            screenPt += new Vector3(0f, _defaultLabelYOffset, 0f);
+
+            // Back to world
+            Vector3 adjustedWorld = _mainCam.ScreenToWorldPoint(screenPt);
+
+            // Convert that to local
+            Vector3 local = transform.InverseTransformPoint(adjustedWorld);
+
+            go.transform.localPosition = new Vector3(0f, local.y, 0f);
 
             labelAnchor = go.transform;
         }
 
-
         private float GetBottomMostLocalY()
         {
-            // Get the minimum local y value, taking into consideration all of the visible sprite renderers.  This
-            // bottom-most bound doesn't take into account any of the sprites' alpha, however, so visually the value
-            // may 'look' incorrect.
+            float minWorldY = float.PositiveInfinity;
+            Transform root = transform;
 
-            float minY = float.PositiveInfinity;
-
-            // Iterate all child SpriteRenderers
+            // Iterate all active, enabled SpriteRenderers in children
             foreach (var sr in GetComponentsInChildren<SpriteRenderer>(includeInactive: false))
             {
-                if (sr.sprite == null || sr.enabled == false)
+                if (!sr.enabled || sr.sprite == null)
                 {
                     continue;
                 }
 
-                // Get the sprite's local bounds
-                var b = sr.sprite.bounds;
-                Vector3[] localCorners = new Vector3[4]
-                {
-                    new Vector3(b.min.x, b.min.y, 0f),
-                    new Vector3(b.min.x, b.max.y, 0f),
-                    new Vector3(b.max.x, b.max.y, 0f),
-                    new Vector3(b.max.x, b.min.y, 0f),
-                };
+                // Grab the 2D vertex array from the sprite
+                Vector2[] verts2D = sr.sprite.vertices;
+                Matrix4x4 localToWorld = sr.transform.localToWorldMatrix;
 
-                // Transform each corner to world space and track the minimum Y
-                for (int i = 0; i < 4; i++)
+                // Transform each vertex to world space and track the minimum Y
+                for (int i = 0; i < verts2D.Length; i++)
                 {
-                    Vector3 worldCorner = sr.transform.TransformPoint(localCorners[i]);
-                    if (worldCorner.y < minY)
+                    Vector3 worldPos = localToWorld.MultiplyPoint3x4(verts2D[i]);
+                    if (worldPos.y < minWorldY)
                     {
-                        minY = worldCorner.y;
+                        minWorldY = worldPos.y;
                     }
                 }
             }
 
-            // If no sprites were found, default to this object's Y
-            if (minY == float.PositiveInfinity)
+            // If no sprites were found, fall back to this object’s world Y
+            if (minWorldY == float.PositiveInfinity)
             {
-                minY = transform.position.y;
+                minWorldY = root.position.y;
             }
 
-            return transform.InverseTransformPoint(new Vector3(0f, minY, 0f)).y;
+            // Convert the bottom-most world Y back into this transform’s local Y
+            Vector3 bottomWorld = new Vector3(0f, minWorldY, 0f);
+
+            return root.InverseTransformPoint(bottomWorld).y;
         }
 
         private void OnDrawGizmos()
@@ -181,7 +193,7 @@ namespace Spriter2UnityDX.Extras
                 {
                     fontSize = 12,
                     fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.MiddleCenter,
+                    alignment = TextAnchor.MiddleCenter, // note: alignment is ignored in 2019.x
                     normal = new GUIStyleState { textColor = Color.yellow }
                 };
 
