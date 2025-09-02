@@ -40,6 +40,22 @@ namespace Spriter2UnityDX.Prefabs
             var folders = new Dictionary<int, IDictionary<int, Sprite>>();
             var fileInfo = new Dictionary<int, IDictionary<int, File>>();
 
+            AssetDatabase.StartAssetEditing();
+
+            foreach (var folder in obj.folders)
+            {
+                foreach (var file in folder.files)
+                {
+                    if (file.objectType == ObjectType.sprite)
+                    {
+                        var path = string.Format("{0}/{1}", directory, file.name);
+                        SetTextureImportSettings(path, file);
+                    }
+                }
+            }
+
+            AssetDatabase.StopAssetEditing();
+
             foreach (var folder in obj.folders)
             {
                 var files = folders[folder.id] = new Dictionary<int, Sprite>();
@@ -50,7 +66,7 @@ namespace Spriter2UnityDX.Prefabs
                     if (file.objectType == ObjectType.sprite)
                     {
                         var path = string.Format("{0}/{1}", directory, file.name);
-                        files[file.id] = GetSpriteAtPath(path, file, ref success);
+                        files[file.id] = GetSpriteAtPath(path);
 
                         fi[file.id] = file;
                     }
@@ -433,46 +449,56 @@ namespace Spriter2UnityDX.Prefabs
             }
         }
 
-        private Sprite GetSpriteAtPath(string path, File file, ref bool success)
+        private void SetTextureImportSettings(string path, File file)
         {
             var importer = TextureImporter.GetAtPath(path) as TextureImporter;
 
-            if (importer != null)
-            {   //If no TextureImporter exists, there's no texture to be found
-                if (importer.textureType != TextureImporterType.Sprite
-                    || importer.spritePivot.x != file.pivot_x
-                    || importer.spritePivot.y != file.pivot_y
-                    || importer.spriteImportMode != SpriteImportMode.Single
-                    || (ScmlImportOptions.options != null && importer.spritePixelsPerUnit != ScmlImportOptions.options.pixelsPerUnit))
-                {
-                    // If the texture type isn't Sprite, the pivot isn't set properly, or the import mode is incorrect
-                    // set the texture type, pivot, and import mode and make success false so the process can abort
-                    // after all the textures have been processed
-
-                    importer.spriteImportMode = SpriteImportMode.Single;
-
-                    var settings = new TextureImporterSettings();
-                    importer.ReadTextureSettings(settings);
-                    settings.ApplyTextureType(TextureImporterType.Sprite);
-                    settings.spriteAlignment = (int)SpriteAlignment.Custom;
-                    settings.spritePivot = new Vector2(file.pivot_x, file.pivot_y);
-
-                    if (ScmlImportOptions.options != null)
-                    {
-                        settings.spritePixelsPerUnit = ScmlImportOptions.options.pixelsPerUnit;
-                    }
-
-                    importer.SetTextureSettings(settings);
-
-                    AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
-                }
+            if (importer == null)
+            {   // If no TextureImporter exists, there's no texture to be found
+                return;
             }
-            else
+
+            bool requiresSettingsUpdate =
+                importer.textureType != TextureImporterType.Sprite
+                || importer.spritePivot.x != file.pivot_x
+                || importer.spritePivot.y != file.pivot_y
+                || importer.spriteImportMode != SpriteImportMode.Single
+                || (ScmlImportOptions.options != null && importer.spritePixelsPerUnit != ScmlImportOptions.options.pixelsPerUnit);
+
+            if (requiresSettingsUpdate)
             {
-                Debug.LogErrorFormat("Error: No Sprite was found at {0}", path);
+                // Make sure the texture has the required settings...
+
+                var settings = new TextureImporterSettings();
+                importer.ReadTextureSettings(settings);
+
+                settings.ApplyTextureType(TextureImporterType.Sprite);
+                settings.spriteAlignment = (int)SpriteAlignment.Custom;
+                settings.spritePivot = new Vector2(file.pivot_x, file.pivot_y);
+
+                if (ScmlImportOptions.options != null)
+                {
+                    settings.spritePixelsPerUnit = ScmlImportOptions.options.pixelsPerUnit;
+                }
+
+                importer.SetTextureSettings(settings);
+
+                importer.spriteImportMode = SpriteImportMode.Single; // Set this last!  It won't work in some cases otherwise.
+
+                importer.SaveAndReimport();
+            }
+        }
+
+        private Sprite GetSpriteAtPath(string path)
+        {
+            Sprite result = (Sprite)AssetDatabase.LoadAssetAtPath(path, typeof(Sprite));
+            if (result == null)
+            {
+                Debug.LogWarning($"The Spriter .scml file references a sprite at '{path}' but it was not found.  " +
+                    "The sprite may not be needed so the import will continue.");
             }
 
-            return (Sprite)AssetDatabase.LoadAssetAtPath(path, typeof(Sprite));
+            return result;
         }
     }
 }
