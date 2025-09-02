@@ -19,7 +19,7 @@ One animation clip will be generated for each of an entity's animations.  These 
 
 ## Why this fork?
 
-This is a custom fork of the Spriter2UnityDX project.  It adds a lot of new functionality.  The main focus of the fork is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  It aims to be lightweight and allocation free.
+This is a custom fork of the Spriter2UnityDX project.  It adds a lot of new functionality.  The main focus of the fork is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  It aims to be lightweight and allocation-free.
 
 ## Where to get Spriter2UnityDX and how to install it
 
@@ -41,8 +41,6 @@ You have two simple options for installation: grab the UnityPackage from Release
 
 Once Spriter2UnityDX is installed you can import a Spriter project simply by dropping the folder that contains the .scml file--**and** all of the image files needed by the .scml file--into the Unity `Project` window.
 
->Only Unity 2D projects are supported at this time. An import may fail when you drop a Spriter project folder into a 3D project. A second attempt via Reimport *may* work.
-
 Dropping a Spriter project folder into Unity's `Project` window will kick-off Unity's importers (for the image files) and, once Unity is done, it will hand control to Spriter2UnityDX to import the .scml file.  A window with a few import options will pop-up at this time.  For now, simply leave the import options as-is and click the `Import` button.
 
 This will import all of the contents from all of the .scml files that are found in the folder and its subfolders.  The importer will ignore Spriter's `autosave` files so don't worry about them being present during import.
@@ -52,8 +50,6 @@ The importer will write its generated output files (the prefabs, etc.) into the 
 > Important!  Some Spriter .scml files contain **a lot** of information to process.  It can take several minutes (up to 15 minutes!) to do an import.  ***Be patient.***  Unity will be unresponsive at this time but be assured that Unity isn't 'locked up'.  If you're worried, you can open a file browser and monitor the importer's progress by checking for the presence of the importer's output files.  If possible, you should start with a small, simple Spriter project.
 
 Once the import is complete, check the folder for newly created prefab files.  There will be one for each entity in the .scml file(s).  If you click on one of these prefabs you will see that its preview image is generated from the first frame of the entity's first animation.
-
-If you don't see a preview image then be sure that you aren't trying to import the Spriter project into a 3D Unity project.  If you *are* then right-clicking the .scml file and clicking `Reimport` *may* work but, strictly speaking, 3D projects aren't supported at this time.
 
 Drop one of these prefabs into the `Scene` view.  Open Unity's `Animation` window.  Select the game object (the instantiated prefab) in the `Scene` view and select an animation clip in the `Animation` window.  Hit the play animation button (▶️) and the animation will play.
 
@@ -286,8 +282,6 @@ On the flip side, contracting an animation in Unity risks having the editor drop
 ## Known Issues.
 
 During an import, having a Spriter project open in the Spriter application can (infrequently) cause the import to fail.  You will get an error regarding file access.  You may need to close the Spriter application in this case.
-
-Only Unity 2D projects are supported.  An import may fail when you drop a Spriter project folder into a 3D project.  A second attempt via `Reimport` *may* work.
 
 There may be issues with key timing during parent and/or pivot changes.  This may not always be noticeable during normal playback because it happens for just one frame.  (Spriter projects have a framerate of **1000 frames per second!**)  Slowly scrubbing through the frames at the point of a parent/pivot change may reveal that the keys aren't properly synchronized.  For a single frame the affected sprite(s) will have an incorrect position, rotation and/or scale.  This can usually be corrected in the Unity `Animation` window by moving the master keyframe (the topmost key in the dopesheet) a single frame to the **right** and then back to the left.
 
