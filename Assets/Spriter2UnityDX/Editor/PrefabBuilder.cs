@@ -9,6 +9,7 @@ using UnityEditor;
 using UnityEditor.Animations;
 using System;
 using System.IO;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -29,10 +30,9 @@ namespace Spriter2UnityDX.Prefabs
             ProcessingInfo = info;
         }
 
-        public bool Build(ScmlObject obj, string scmlPath)
+        public IEnumerator Build(ScmlObject obj, string scmlPath, IBuildTaskContext buildCtx)
         {
             // The process begins by loading up all the textures
-            var success = true;
             var directory = Path.GetDirectoryName(scmlPath);
 
             // I find these slightly more useful than Lists because you can be 100% sure
@@ -49,6 +49,10 @@ namespace Spriter2UnityDX.Prefabs
                     if (file.objectType == ObjectType.sprite)
                     {
                         var path = string.Format("{0}/{1}", directory, file.name);
+
+                        if (buildCtx.IsCanceled) { yield break; }
+                        yield return $"{buildCtx.MessagePrefix}: Setting texture import options for {path}";
+
                         SetTextureImportSettings(path, file);
                     }
                 }
@@ -66,21 +70,28 @@ namespace Spriter2UnityDX.Prefabs
                     if (file.objectType == ObjectType.sprite)
                     {
                         var path = string.Format("{0}/{1}", directory, file.name);
-                        files[file.id] = GetSpriteAtPath(path);
 
+                        if (buildCtx.IsCanceled) { yield break; }
+                        yield return $"{buildCtx.MessagePrefix}: Getting sprite at {path}";
+
+                        files[file.id] = GetSpriteAtPath(path);
                         fi[file.id] = file;
                     }
                 }
             }
 
             foreach (var entity in obj.entities)
-            {   //Now begins the real prefab build process
+            {   // Now begins the real prefab build process
                 var prefabPath = string.Format("{0}/{1}.prefab", directory, entity.name);
+
+                if (buildCtx.IsCanceled) { yield break; }
+                yield return $"{buildCtx.MessagePrefix}: Getting/creating prefab at {prefabPath}";
+
                 var prefab = (GameObject)AssetDatabase.LoadAssetAtPath(prefabPath, typeof(GameObject));
                 GameObject instance;
 
                 if (prefab == null)
-                { //Creates an empty prefab if one doesn't already exists
+                {   // Creates an empty prefab if one doesn't already exists
                     instance = new GameObject(entity.name);
                     prefab = PrefabUtility.SaveAsPrefabAssetAndConnect(instance, prefabPath, InteractionMode.AutomatedAction);
                     ProcessingInfo.NewPrefabs.Add(prefab);
@@ -91,25 +102,46 @@ namespace Spriter2UnityDX.Prefabs
                     ProcessingInfo.ModifiedPrefabs.Add(prefab);
                 }
 
-                try
+                var prefabBuildProcess =
+                    IteratorUtils.SafeEnumerable(
+                        () => TryBuild(entity, prefab, instance, directory, prefabPath, folders, fileInfo, buildCtx),
+                        ex =>
+                        {
+                            DestroyImmediate(instance);
+                            Debug.LogErrorFormat("Build failed for '{0}': {1}", entity.name, ex);
+                        });
+
+                while (prefabBuildProcess.MoveNext())
                 {
-                    TryBuild(entity, prefab, instance, directory, prefabPath, folders, fileInfo);
+                    yield return prefabBuildProcess.Current;
                 }
-                catch (Exception e)
+
+                if (buildCtx.IsCanceled)
                 {
                     DestroyImmediate(instance);
-                    Debug.LogErrorFormat("Unable to build a prefab for '{0}'. Reason: {1}", entity.name, e);
+                    yield break;
                 }
             }
-
-            return success;
         }
 
-        private void TryBuild(Entity entity, GameObject prefab, GameObject instance, string directory, string prefabPath,
-            IDictionary<int, IDictionary<int, Sprite>> folders, Dictionary<int, IDictionary<int, File>> fileInfo)
+        private IEnumerator TryBuild(Entity entity, GameObject prefab, GameObject instance, string directory, string prefabPath,
+            IDictionary<int, IDictionary<int, Sprite>> folders, Dictionary<int, IDictionary<int, File>> fileInfo, IBuildTaskContext buildCtx)
         {
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}: Processing entity '{entity.name}'";
+
+            buildCtx.EntityName = entity.name;
+
             // SpriterEntityInfo will initialize and gather info about the bones and sprites for this entity.
-            SpriterEntityInfo entityInfo = new SpriterEntityInfo(entity, fileInfo);
+            SpriterEntityInfo entityInfo = new SpriterEntityInfo();
+
+            var entityInfoProcess = entityInfo.Process(entity, fileInfo, buildCtx);
+            while (entityInfoProcess.MoveNext())
+            {
+                yield return entityInfoProcess.Current;
+            }
+
+            if (buildCtx.IsCanceled) { yield break; }
 
             var controllerPath = string.Format("{0}/{1}.controller", directory, entity.name);
             var animator = instance.GetOrAddComponent<Animator>(); // Fetches/creeates the prefab's Animator
@@ -143,6 +175,11 @@ namespace Spriter2UnityDX.Prefabs
 
             foreach (var animation in entity.animations)
             {
+                buildCtx.AnimationName = animation.name;
+
+                if (buildCtx.IsCanceled) { yield break; }
+                yield return $"{buildCtx.MessagePrefix}: processing";
+
                 var timeLines = new Dictionary<int, TimeLine>();
                 foreach (var timeLine in animation.timelines) //TimeLines hold all the critical data such as positioning and graphics used
                 {
@@ -154,21 +191,36 @@ namespace Spriter2UnityDX.Prefabs
                     var parents = new Dictionary<int, string>(); //Parents are referenced by different IDs V_V
                     parents[-1] = "rootTransform"; //This is where "-1 == no parent" comes in handy
 
+                    if (buildCtx.IsCanceled) { yield break; }
+                    yield return $"{buildCtx.MessagePrefix}, mainline key time: {key.time_s}, processing bones";
+
                     ProcessBones(parents, transforms, timeLines, key, defaultBones, entityInfo);
+
+                    if (buildCtx.IsCanceled) { yield break; }
+                    yield return $"{buildCtx.MessagePrefix}, mainline key time: {key.time_s}, processing sprites";
+
                     ProcessSprites(parents, transforms, timeLines, key, defaultBones, defaultSprites, entityInfo, folders, firstAnim);
 
                     firstAnim = false;
                 }
 
-                try
+                var animBuildProcess =
+                    IteratorUtils.SafeEnumerable(
+                        () => animBuilder.Build(animation, timeLines, buildCtx),
+                        ex =>
+                        {
+                            Debug.LogErrorFormat("Unable to build animation '{0}' for '{1}', reason: {2}", animation.name, entity.name, ex);
+                        });
+
+                while (animBuildProcess.MoveNext())
                 {
-                    animBuilder.Build(animation, timeLines); //Builds the currently processed AnimationClip, see AnimationBuilder for more info
+                    yield return animBuildProcess.Current;
                 }
-                catch (Exception e)
-                {
-                    Debug.LogErrorFormat("Unable to build animation '{0}' for '{1}', reason: {2}", animation.name, entity.name, e);
-                }
+
+                if (buildCtx.IsCanceled) { yield break; }
             }
+
+            buildCtx.AnimationName = "";
 
             // This is where we finish adding 'possible parents' to virtual parent components.
 
@@ -202,6 +254,17 @@ namespace Spriter2UnityDX.Prefabs
 
             PrefabUtility.SaveAsPrefabAssetAndConnect(instance, prefabPath, InteractionMode.AutomatedAction);
             DestroyImmediate(instance); //Apply the instance's changes to the prefab, then destroy the instance.
+
+            buildCtx.EntityName = "";
+
+            if (buildCtx.ImportedPrefabs.Contains(prefabPath))
+            {
+                Debug.LogWarning($"The prefab at '{prefabPath}' has been imported more than once in the same import " +
+                    "session.  This is likely due to 1) multiple .scml files in the same folder that have entities " +
+                    "that share the same name, or 2) a single .scml file with duplicate entity names.");
+            }
+
+            buildCtx.ImportedPrefabs.Add(prefabPath);
         }
 
         private void ProcessBones(Dictionary<int, string> parents, Dictionary<string, Transform> transforms,

@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.Animations;
 using System;
+using System.Collections;
 using System.Linq;
 using System.Collections.Generic;
 using Object = UnityEngine.Object;
@@ -82,11 +83,14 @@ namespace Spriter2UnityDX.Animations
             return null;
         }
 
-        public void Build(Animation animation, IDictionary<int, TimeLine> timeLines)
+        public IEnumerator Build(Animation animation, IDictionary<int, TimeLine> timeLines, IBuildTaskContext buildCtx)
         {
             var clip = new AnimationClip();
             clip.name = animation.name;
             clip.frameRate = 1000f;
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, creating animation clip '{clip.name}'";
 
             // This Dictionary will shrink in size for every transform that is considered "used".
             var pendingTransforms = new Dictionary<string, Transform>(Transforms);
@@ -108,6 +112,9 @@ namespace Spriter2UnityDX.Animations
 
                         if (pendingTransforms.TryGetValue(timeLine.name, out bone))
                         {   //Skip it if it's already "used"
+                            if (buildCtx.IsCanceled) { yield break; }
+                            yield return $"{buildCtx.MessagePrefix}, bone: '{timeLine.name}', creating animation curves";
+
                             List<TimeLineKey> parentTimeline;
                             parentTimelines.TryGetValue(bref.parent, out parentTimeline);
                             SetCurves(bone, DefaultBones[timeLine.name], timeLine, clip, animation);
@@ -127,6 +134,9 @@ namespace Spriter2UnityDX.Animations
 
                     if (pendingTransforms.TryGetValue(timeLine.name, out sprite))
                     {
+                        if (buildCtx.IsCanceled) { yield break; }
+                        yield return $"{buildCtx.MessagePrefix}, sprite: '{timeLine.name}', creating animation curves";
+
                         var defaultZ = sref.z_index;
                         List<TimeLineKey> parentTimeline;
                         parentTimelines.TryGetValue(sref.parent, out parentTimeline);
@@ -152,6 +162,9 @@ namespace Spriter2UnityDX.Animations
                 }
             }
 
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, configuring animation clip";
+
             var settings = AnimationUtility.GetAnimationClipSettings(clip);
             settings.stopTime = animation.length; //Set the animation's length and other settings
 
@@ -168,7 +181,10 @@ namespace Spriter2UnityDX.Animations
             AnimationUtility.SetAnimationClipSettings(clip, settings);
 
             if (OriginalClips.ContainsKey(animation.name))
-            {   //If the clip already exists, copy this clip into the old one
+            {   // If the clip already exists, copy this clip into the old one
+                if (buildCtx.IsCanceled) { yield break; }
+                yield return $"{buildCtx.MessagePrefix}, overwriting animation clip";
+
                 var oldClip = OriginalClips[animation.name];
                 var cachedEvents = oldClip.events;
                 EditorUtility.CopySerialized(clip, oldClip);
@@ -185,7 +201,10 @@ namespace Spriter2UnityDX.Animations
                 switch (importOption)
                 {
                     case ScmlImportOptions.AnimationImportOption.NestedInPrefab:
-                        AssetDatabase.AddObjectToAsset(clip, PrefabPath); //Otherwise create a new one
+                        if (buildCtx.IsCanceled) { yield break; }
+                        yield return $"{buildCtx.MessagePrefix}, adding animation clip to prefab";
+
+                        AssetDatabase.AddObjectToAsset(clip, PrefabPath);
                         break;
 
                     case ScmlImportOptions.AnimationImportOption.SeparateFolder:
@@ -196,7 +215,13 @@ namespace Spriter2UnityDX.Animations
                             var newFolder = AnimationsPath.Substring(splitIndex + 1);
                             AssetDatabase.CreateFolder(path, newFolder);
                         }
-                        AssetDatabase.CreateAsset(clip, string.Format("{0}/{1}.anim", AnimationsPath, clip.name));
+
+                        var animPath = string.Format("{0}/{1}.anim", AnimationsPath, clip.name);
+
+                        if (buildCtx.IsCanceled) { yield break; }
+                        yield return $"{buildCtx.MessagePrefix}, writing animation clip to file '{animPath}'";
+
+                        AssetDatabase.CreateAsset(clip, animPath);
                         break;
                 }
 
@@ -205,7 +230,10 @@ namespace Spriter2UnityDX.Animations
 
             if (!ArrayUtility.Contains(Controller.animationClips, clip))
             {   // Don't add the clip if it's already there
-                var state = GetStateFromController(clip.name); //Find a state of the same name
+                if (buildCtx.IsCanceled) { yield break; }
+                yield return $"{buildCtx.MessagePrefix}, adding/replacing animation state to animator controller";
+
+                var state = GetStateFromController(clip.name); // Find a state of the same name
 
                 if (state != null)
                 {

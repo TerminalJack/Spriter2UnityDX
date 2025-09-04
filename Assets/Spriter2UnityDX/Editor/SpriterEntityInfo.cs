@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -64,23 +65,68 @@ namespace Spriter2UnityDX.Entity
 
         private string _entityName;
 
-        public SpriterEntityInfo(Entity entity, Dictionary<int, IDictionary<int, File>> fileInfo)
+        public SpriterEntityInfo()
+        {
+        }
+
+        public IEnumerator Process(Entity entity, Dictionary<int, IDictionary<int, File>> fileInfo, IBuildTaskContext buildCtx)
         {
             _entityName = entity.name;
 
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, checking for missing mainline keys";
             CheckForMissingMainlineKeys(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, checking for missing mainline time=0 keys";
             CheckForMissingMainlineTime0Keys(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, checking for mainline blending keys";
             CheckForMainlineBlendingKeys(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, handling invalid bone data";
             HandleInvalidBoneData(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, checking for animated bone scales";
             CheckForAnimatedBoneScales(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, checking for animated bone alphas";
             CheckForAnimatedBoneAlphas(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, processing bones";
             ProcessBones(entity); // Populates boneInfo collection.
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, processing sprites";
             ProcessSprites(entity); // Populates objectInfo collection.
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, processing unsupported types";
             ProcessUnsupportTypes(entity); // Warns of unsupported types.  Puts them in objectInfo collection.
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, processing pivot points";
             ProcessSpritePivots(entity, fileInfo);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, processing bones with multiple parents";
             ProcessBonesWithMultipleParents(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, processing objects with multiple parents";
             ProcessObjectsWithMultipleParents(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, processing z-indices";
             ProcessZIndices(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, processing pivots and parents";
             ProcessPivotsAndParents(entity);
         }
 

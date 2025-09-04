@@ -47,7 +47,9 @@ This will import all of the contents from all of the .scml files that are found 
 
 The importer will write its generated output files (the prefabs, etc.) into the same folder as the corresponding .scml file.  Depending on import settings, animation clips can be embedded in the prefab or written into a subfolder.
 
-> Important!  Some Spriter .scml files contain **a lot** of information to process.  It can take several minutes (up to 15 minutes!) to do an import.  ***Be patient.***  Unity will be unresponsive at this time but be assured that Unity isn't 'locked up'.  If you're worried, you can open a file browser and monitor the importer's progress by checking for the presence of the importer's output files.  If possible, you should start with a small, simple Spriter project.
+The `Spriter Import Status` window will keep you informed about the import progress.  The information in this window isn't particularly important so don't try to keep up with it as it scrolls by.  It basically serves to let you know that the importer is, in fact, doing its job.  Any important information will be logged to the console.
+
+You may notice that the imported prefabs pop-up in the scene view during processing.  This is normal and they will be removed once they are imported.  Sometimes the sprites will be all jumbled-up but that's normal as well.
 
 Once the import is complete, check the folder for newly created prefab files.  There will be one for each entity in the .scml file(s).  If you click on one of these prefabs you will see that its preview image is generated from the first frame of the entity's first animation.
 

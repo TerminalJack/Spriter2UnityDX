@@ -9,6 +9,7 @@ using UnityEditor;
 using UnityEditor.Animations;
 using System.IO;
 using System.Xml.Serialization;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Spriter2UnityDX.PostProcessing
@@ -16,13 +17,12 @@ namespace Spriter2UnityDX.PostProcessing
     using Importing;
     using Prefabs;
 
-    //Detects when a .scml file has been imported, then begins the process to create the prefab
+    // Detects when a .scml file has been imported, then begins the process to create the prefab
     public class ScmlPostProcessor : AssetPostprocessor
     {
-        private static IList<string> cachedPaths = new List<string>();
-
-        //Called after an import, detects if imported files end in .scml
-        private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths)
+        // Called after an import, detects if imported files end in .scml
+        private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets,
+            string[] movedAssets, string[] movedFromAssetPaths)
         {
             var filesToProcess = new List<string>();
             bool optionsNeedUpdated = false;
@@ -32,22 +32,9 @@ namespace Spriter2UnityDX.PostProcessing
                 if (path.EndsWith(".scml") && !path.Contains("autosave"))
                 {
                     filesToProcess.Add(path);
-                    if (!cachedPaths.Contains(path))
-                    {
-                        optionsNeedUpdated = true;
-                    }
+                    optionsNeedUpdated = true;
                 }
             }
-
-            foreach (var path in cachedPaths)
-            {   //Are there any incomplete processes from the last import cycle?
-                if (!filesToProcess.Contains(path))
-                {
-                    filesToProcess.Add(path);
-                }
-            }
-
-            cachedPaths.Clear();
 
             if (filesToProcess.Count > 0)
             {
@@ -66,21 +53,37 @@ namespace Spriter2UnityDX.PostProcessing
 
         private static void ProcessFiles(IList<string> paths)
         {
+            var buildMonitorWindow = EditorWindow.GetWindow<BuildMonitorWindow>();
+            buildMonitorWindow.BeginBuild(DoProcessFiles(paths, buildMonitorWindow));
+
+            AssetDatabase.Refresh();
+            AssetDatabase.SaveAssets();
+        }
+
+        private static IEnumerator DoProcessFiles(IList<string> paths, BuildMonitorWindow buildMonitorWindow)
+        {
             var info = new ScmlProcessingInfo();
             var builder = new PrefabBuilder(info);
 
             foreach (var path in paths)
             {
+                buildMonitorWindow.InputFileName = Path.GetFileName(path);
+                yield return $"Importing {path}";
 
-                if (!builder.Build(Deserialize(path), path))  //Process will fail if texture import settings need to be updated
+                yield return $"Deserializing {path}";
+
+                var buildProcess = builder.Build(Deserialize(path), path, buildMonitorWindow);
+
+                while (buildProcess.MoveNext())
                 {
-                    cachedPaths.Add(path); //Failed processes will be saved and re-attempted during the next import cycle
+                    yield return buildProcess.Current;
+                }
+
+                if (buildMonitorWindow.IsCanceled)
+                {
+                    yield break;
                 }
             }
-
-            AssetDatabase.Refresh();
-            AssetDatabase.SaveAssets();
-            PostProcess(info);
         }
 
         private static ScmlObject Deserialize(string path)
@@ -88,15 +91,8 @@ namespace Spriter2UnityDX.PostProcessing
             var serializer = new XmlSerializer(typeof(ScmlObject));
             using (var reader = new StreamReader(path))
             {
-
                 return (ScmlObject)serializer.Deserialize(reader);
             }
-        }
-
-        private static void PostProcess(ScmlProcessingInfo info)
-        {
-            //You can put your own code or references to your own code here
-            //If you want to do any work on these assets
         }
     }
 }

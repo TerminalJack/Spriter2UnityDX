@@ -11,6 +11,7 @@ namespace Spriter2UnityDX.Importing
         void OnEnable()
         {
             titleContent = new GUIContent("Spriter Import Options");
+            minSize = new Vector2(350, 270);
         }
 
         void OnGUI()
@@ -26,8 +27,7 @@ namespace Spriter2UnityDX.Importing
             ScmlImportOptions.options.importOption =
                 (ScmlImportOptions.AnimationImportOption)EditorGUILayout.EnumPopup("Animation Import Style", ScmlImportOptions.options.importOption);
 
-            EditorGUILayout.Space();
-            EditorGUILayout.Space();
+            EditorGUILayout.Space(8);
 
             EditorGUILayout.HelpBox(
                 "Pixels Per Unit: The images will have their PPU import setting set to this value.  PPU is " +
@@ -39,21 +39,25 @@ namespace Spriter2UnityDX.Importing
                 "Animation Import Style: Where to store animation clips.",
                 MessageType.Info, wide: true);
 
-            EditorGUILayout.Space();
-            EditorGUILayout.Space();
+            EditorGUILayout.Space(8);
 
             EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
 
-            if (GUILayout.Button("Cancel"))
+            if (GUILayout.Button("Cancel", GUILayout.Width(100), GUILayout.Height(24)))
             {
                 Close();
             }
 
-            if (GUILayout.Button("Import"))
+            GUILayout.FlexibleSpace();
+
+            if (GUILayout.Button("Import", GUILayout.Width(100), GUILayout.Height(24)))
             {
                 Close();
                 OnImport();
             }
+
+            GUILayout.FlexibleSpace();
 
             EditorGUILayout.EndHorizontal();
         }
