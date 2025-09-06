@@ -247,11 +247,13 @@ Many commercial Spriter projects come with images that are much bigger than you 
 
 **Mip Maps**
 
+>From Wikipedia: In computer graphics, a mipmap (mip being an acronym of the Latin phrase multum in parvo, meaning "much in little") is a pre-calculated, optimized sequence of images, each of which has an image resolution which is a factor of two smaller than the previous.  Their use is known as mipmapping.
+
 Something to be aware of with regard to Unity's sprite renderer, is that it uses simple UV texture sampling to get a sprite's texture from GPU memory to the screen.  That is, there isn't any texture filtering done.  Basically, what this means is that if, for example, the image in the GPU's memory is twice as large as it will be rendered on-screen then only every other pixel will be sampled when generating the output.
 
 This can result in sprites that have jagged edges.  The simple solution to this is to enable mip maps via the `Sprite Atlas`'s `Generate Mip Maps` property.  (You *are* using sprite atlases, right?)
 
->From Wikipedia: In computer graphics, a mipmap (mip being an acronym of the Latin phrase multum in parvo, meaning "much in little") is a pre-calculated, optimized sequence of images, each of which has an image resolution which is a factor of two smaller than the previous.  Their use is known as mipmapping.
+>You may not see these 'jagged edges' in Unity's scene view.  In the scene view, sprites will be displayed with a different renderer than what your game will use.  Use the game view instead.
 
 Another option to fix this is to use Spriter Pro's `Save as resized project` feature.  This will allow you to generate images that are basically "pixel perfect" so that the images don't need to be stretched or compressed.
 

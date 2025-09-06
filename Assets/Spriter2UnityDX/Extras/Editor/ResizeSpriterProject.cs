@@ -389,16 +389,14 @@ public class ResizeSpriterProject : EditorWindow
                 return false;
             }
 
-            source.wrapMode   = TextureWrapMode.Clamp;
-            source.wrapModeU  = TextureWrapMode.Clamp;
-            source.wrapModeV  = TextureWrapMode.Clamp;
+            source.wrapMode = TextureWrapMode.Clamp;
+            source.wrapModeU = TextureWrapMode.Clamp;
+            source.wrapModeV = TextureWrapMode.Clamp;
 
             newWidth = Mathf.FloorToInt(source.width * scale + 0.5f);
             newHeight = Mathf.FloorToInt(source.height * scale + 0.5f);
 
-            BleedTransparentBorderRadius(source, radius: 4);
-
-            Texture2D resized = PreBlurAndResize(source, newWidth, newHeight);
+            Texture2D resized = ProgressiveResize(source, newWidth, newHeight);
 
             SaveTexture(resized, outputPath);
 
@@ -406,6 +404,52 @@ public class ResizeSpriterProject : EditorWindow
             DestroyImmediate(resized);
 
             return true;
+        }
+
+        static Texture2D ProgressiveResize(Texture2D src, int finalW, int finalH)
+        {
+            Texture2D current = src;
+
+            current.wrapMode = TextureWrapMode.Clamp;
+            current.wrapModeU = TextureWrapMode.Clamp;
+            current.wrapModeV = TextureWrapMode.Clamp;
+
+            // Half only while next‐half is still at least twice the final size
+            while (current.width / 2 >= finalW * 2 || current.height / 2 >= finalH * 2)
+            {
+                int w = current.width / 2;
+                int h = current.height / 2;
+
+                BleedTransparentBorderRadius(current, 4);
+                var next = PreBlurAndResize(current, w, h);
+
+                if (current != src)
+                {
+                    DestroyImmediate(current);
+                }
+
+                current = next;
+
+                current.wrapMode = TextureWrapMode.Clamp;
+                current.wrapModeU = TextureWrapMode.Clamp;
+                current.wrapModeV = TextureWrapMode.Clamp;
+            }
+
+            // Single final step
+            if (current.width != finalW || current.height != finalH)
+            {
+                BleedTransparentBorderRadius(current, 4);
+                var last = PreBlurAndResize(current, finalW, finalH);
+
+                if (current != src)
+                {
+                    DestroyImmediate(current);
+                }
+
+                current = last;
+            }
+
+            return current;
         }
 
         /// Fills transparent pixels by averaging neighbors within 'radius'.
@@ -444,7 +488,7 @@ public class ResizeSpriterProject : EditorWindow
                     }
 
                     Vector3 colSum = Vector3.zero;
-                    float  aSum   = 0f;
+                    float aSum = 0f;
 
                     foreach (var off in offsets)
                     {
@@ -496,14 +540,14 @@ public class ResizeSpriterProject : EditorWindow
             var desc = new RenderTextureDescriptor(source.width, source.height,
                 RenderTextureFormat.ARGB32, 0)
             {
-                sRGB            = QualitySettings.activeColorSpace == ColorSpace.Linear,
-                useMipMap       = false,
-                autoGenerateMips= false
+                sRGB = QualitySettings.activeColorSpace == ColorSpace.Linear,
+                useMipMap = false,
+                autoGenerateMips = false
             };
 
             // When creating RTs:
-            desc.colorFormat   = RenderTextureFormat.ARGB32;
-            desc.useMipMap     = false;
+            desc.colorFormat = RenderTextureFormat.ARGB32;
+            desc.useMipMap = false;
             desc.autoGenerateMips = false;
 
             // Create two temp RTs for blur
@@ -522,7 +566,7 @@ public class ResizeSpriterProject : EditorWindow
             Graphics.Blit(rtH, rtV, blurMat);
 
             // Now bicubic-resize the blurred RT into final RT
-            desc.width  = outW;
+            desc.width = outW;
             desc.height = outH;
             var rtFinal = RenderTexture.GetTemporary(desc);
 
