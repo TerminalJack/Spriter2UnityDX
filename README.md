@@ -153,7 +153,7 @@ When a Dynamic Pivot 2D component is used the sprite renderer will be placed on 
 
 This component is responsible for updating its corresponding sprite renderer's `Order in Layer` property, where larger values indicate sprites that are closer to the camera.  The `Sorting Order Updater` component will either be on the same game object as the sprite renderer or, if the sprite requires a `Dynamic Pivot 2D` component, it will be on the same game object as the pivot component.  (See the image under the description of the `Dynamic Pivot 2D` component for an example of this.)
 
-The 'sorting order' roughly corresponds to Spriter's z-index.  Spriter's z-index (its value multiplied by -0.001, to be exact) is stored in the `localPosition.z` property of either the pivot's transform, if any, or the sprite render's transform.
+The 'sorting order' roughly corresponds to Spriter's z-index.  Spriter's z-index (its value multiplied by -0.001, to be exact) is stored in the `localPosition.z` property of either the pivot's transform, if any, or the sprite renderer's transform.
 
 >Large values (negative *or* positive) aren't used so that the sprites stay within the camera's clipping space.
 
