@@ -12,6 +12,7 @@ public class ResizeSpriterProject : EditorWindow
     public float NewScale = 0.3f;
 
     private bool _conversionComplete;
+    GUIStyle _invalidFieldStyle;
 
     private static readonly float minScale = 0.05f;
     private static readonly float maxScale = 0.95f;
@@ -52,11 +53,27 @@ public class ResizeSpriterProject : EditorWindow
     void OnEnable()
     {
         titleContent = new GUIContent("Resize Spriter Project");
-        minSize = new Vector2(375, 280);
+        minSize = new Vector2(375, 290);
+    }
+
+    void InitStyles()
+    {
+        if (_invalidFieldStyle != null)
+        {
+            return;
+        }
+
+        _invalidFieldStyle = new GUIStyle(GUI.skin.label);
+        _invalidFieldStyle.fontStyle = FontStyle.Italic;
+        _invalidFieldStyle.normal.textColor = EditorGUIUtility.isProSkin
+            ? new Color(0.8f, 0f, 0f, 1f)
+            : new Color(0.5f, 0.1f, 0.1f, 1f);
     }
 
     void OnGUI()
     {
+        InitStyles();
+
         EditorGUILayout.Space(8);
 
         EditorGUILayout.HelpBox("Resize Spriter Project.  This utility will copy the input Spriter project's .scml " +
@@ -84,11 +101,20 @@ public class ResizeSpriterProject : EditorWindow
             {
                 InputPath = "Assets" + InputPath.Substring(Application.dataPath.Length);
             }
-
         }
 
         EditorGUILayout.EndHorizontal();
-        EditorGUILayout.Space(8);
+
+        bool isInputPathValid = !string.IsNullOrEmpty(InputPath) && File.Exists(InputPath);
+
+        if (!isInputPathValid)
+        {
+            EditorGUILayout.LabelField("* This field is invalid.", _invalidFieldStyle);
+        }
+        else
+        {
+            EditorGUILayout.Space(10);
+        }
 
         EditorGUILayout.LabelField("Output File and Folder  (The newly created project)");
 
@@ -116,7 +142,26 @@ public class ResizeSpriterProject : EditorWindow
         }
 
         EditorGUILayout.EndHorizontal();
-        EditorGUILayout.Space(8);
+
+        bool isOutputDirectoryValid =
+            !string.IsNullOrEmpty(OutputPath) &&
+            Directory.Exists(Path.GetDirectoryName(OutputPath)) &&
+            InputPath != OutputPath;
+
+        bool willOverwriteExisting = isOutputDirectoryValid && File.Exists(OutputPath);
+
+        if (!isOutputDirectoryValid)
+        {
+            EditorGUILayout.LabelField("* This field is invalid.", _invalidFieldStyle);
+        }
+        else if (willOverwriteExisting)
+        {
+            EditorGUILayout.LabelField("* This file will be overwritten.", _invalidFieldStyle);
+        }
+        else
+        {
+            EditorGUILayout.Space(10);
+        }
 
         EditorGUILayout.LabelField("The Output Project's New Scale");
 
@@ -143,7 +188,12 @@ public class ResizeSpriterProject : EditorWindow
 
             GUILayout.FlexibleSpace();
 
-            GUI.enabled = !string.IsNullOrEmpty(InputPath) && !string.IsNullOrEmpty(OutputPath);
+            GUI.enabled =
+                !string.IsNullOrEmpty(InputPath) &&
+                !string.IsNullOrEmpty(OutputPath) &&
+                File.Exists(InputPath) &&
+                Directory.Exists(Path.GetDirectoryName(OutputPath)) &&
+                InputPath != OutputPath;
 
             if (GUILayout.Button("Create", GUILayout.Width(100), GUILayout.Height(24)))
             {
