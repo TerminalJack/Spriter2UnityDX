@@ -40,8 +40,7 @@ public class ResizeSpriterProject : EditorWindow
 
         string path = AssetDatabase.GetAssetPath(Selection.activeObject);
 
-        return path.EndsWith(".scml", StringComparison.OrdinalIgnoreCase) &&
-            !path.Contains("autosave", StringComparison.OrdinalIgnoreCase);
+        return path.EndsWith(".scml", StringComparison.OrdinalIgnoreCase) && !path.Contains("autosave");
     }
 
     [MenuItem("Window/Resize Spriter Project...")]
@@ -87,10 +86,16 @@ public class ResizeSpriterProject : EditorWindow
 
         EditorGUILayout.BeginHorizontal();
 
+        GUI.SetNextControlName("InputPath");
         InputPath = EditorGUILayout.TextField(InputPath);
 
         if (GUILayout.Button("…", GUILayout.Width(20), GUILayout.Height(18)))
         {
+            if (GUI.GetNameOfFocusedControl() == "InputPath")
+            {
+                GUI.FocusControl(null);
+            }
+
             InputPath = EditorUtility.OpenFilePanel(
                 title: "Select Spriter Input File",
                 directory: Application.dataPath,
@@ -120,10 +125,16 @@ public class ResizeSpriterProject : EditorWindow
 
         EditorGUILayout.BeginHorizontal();
 
+        GUI.SetNextControlName("OutputPath");
         OutputPath = EditorGUILayout.TextField(OutputPath);
 
         if (GUILayout.Button("…", GUILayout.Width(20), GUILayout.Height(18)))
         {
+            if (GUI.GetNameOfFocusedControl() == "OutputPath")
+            {
+                GUI.FocusControl(null);
+            }
+
             OutputPath = EditorUtility.SaveFilePanel(
                 title: "Save as Spriter Project (scml & images)",
                 directory: Application.dataPath,
@@ -217,7 +228,7 @@ public class ResizeSpriterProject : EditorWindow
         var inputDirectory = Path.GetDirectoryName(InputPath);
         var outputDirectory = Path.GetDirectoryName(OutputPath);
 
-        void ImageFileHandler(string file)
+        void ImageFileHandler(string file, ImageResizer imageResizer)
         {
             string inputFullPath = $"{inputDirectory}/{file}";
             string outputFullPath = $"{outputDirectory}/{file}";
@@ -232,7 +243,7 @@ public class ResizeSpriterProject : EditorWindow
                 Directory.CreateDirectory(outputFileDirectory);
             }
 
-            ImageResizerUtility.ResizeImage(inputFullPath, outputFullPath, NewScale, ref lastFileWidth, ref lastFileHeight);
+            imageResizer.ResizeImage(inputFullPath, outputFullPath, NewScale, ref lastFileWidth, ref lastFileHeight);
 
             lastFileHandled = file;
         }
@@ -285,10 +296,11 @@ public class ResizeSpriterProject : EditorWindow
 
         AssetDatabase.StartAssetEditing();
 
+        using (var imageResizer = new ImageResizer())
         UpdateSpriterFileAttributes( // And resize images.
             inPath: InputPath,
             outPath: OutputPath,
-            fileHandler: (file) => ImageFileHandler(file),
+            fileHandler: (file) => ImageFileHandler(file, imageResizer),
             predicate: (elem, attr, val, file) => replacementsByElement.TryGetValue(elem, out var attrs) && attrs.ContainsKey(attr),
             modifier: (elem, attr, oldVal, file) => replacementsByElement[elem][attr](oldVal, file)
         );
@@ -421,9 +433,22 @@ public class ResizeSpriterProject : EditorWindow
         }
     }
 
-    private static class ImageResizerUtility
+    private sealed class ImageResizer : IDisposable
     {
-        public static bool ResizeImage(string inputPath, string outputPath, float scale,
+        private readonly Material _bleedMat;
+        private readonly Material _blurMat;
+        private readonly Material _bicubicMat;
+
+        private bool _disposed;
+
+        public ImageResizer()
+        {
+            _bleedMat = new Material(Shader.Find("Hidden/BleedTransparent"));
+            _blurMat = new Material(Shader.Find("Hidden/SeparableGaussianBlur"));
+            _bicubicMat = new Material(Shader.Find("Hidden/BicubicResize"));
+        }
+
+        public bool ResizeImage(string inputPath, string outputPath, float scale,
             ref int newWidth, ref int newHeight)
         {
             if (!File.Exists(inputPath))
@@ -456,7 +481,7 @@ public class ResizeSpriterProject : EditorWindow
             return true;
         }
 
-        static Texture2D ProgressiveResize(Texture2D src, int finalW, int finalH)
+        private Texture2D ProgressiveResize(Texture2D src, int finalW, int finalH)
         {
             Texture2D current = src;
 
@@ -470,8 +495,12 @@ public class ResizeSpriterProject : EditorWindow
                 int w = current.width / 2;
                 int h = current.height / 2;
 
-                BleedTransparentBorderRadius(current, 4);
-                var next = PreBlurAndResize(current, w, h);
+                RenderTexture bleedRt = RenderTexture.GetTemporary(current.width, current.height, 0, RenderTextureFormat.Default);
+                Graphics.Blit(current, bleedRt, _bleedMat);
+
+                var next = PreBlurAndResize(bleedRt, w, h);
+
+                RenderTexture.ReleaseTemporary(bleedRt);
 
                 if (current != src)
                 {
@@ -488,8 +517,12 @@ public class ResizeSpriterProject : EditorWindow
             // Single final step
             if (current.width != finalW || current.height != finalH)
             {
-                BleedTransparentBorderRadius(current, 4);
-                var last = PreBlurAndResize(current, finalW, finalH);
+                RenderTexture bleedRt = RenderTexture.GetTemporary(current.width, current.height, 0, RenderTextureFormat.Default);
+                Graphics.Blit(current, bleedRt, _bleedMat);
+
+                var last = PreBlurAndResize(bleedRt, finalW, finalH);
+
+                RenderTexture.ReleaseTemporary(bleedRt);
 
                 if (current != src)
                 {
@@ -502,95 +535,27 @@ public class ResizeSpriterProject : EditorWindow
             return current;
         }
 
-        /// Fills transparent pixels by averaging neighbors within 'radius'.
-        static void BleedTransparentBorderRadius(Texture2D tex, int radius)
-        {
-            int w = tex.width;
-            int h = tex.height;
-
-            Color[] src = tex.GetPixels();
-            Color[] dst = new Color[src.Length];
-
-            // Precompute neighbor offsets
-            var offsets = new List<Vector2Int>();
-
-            for (int dy = -radius; dy <= radius; dy++)
-            {
-                for (int dx = -radius; dx <= radius; dx++)
-                {
-                    if (dx != 0 || dy != 0)
-                    {
-                        offsets.Add(new Vector2Int(dx, dy));
-                    }
-                }
-            }
-
-            for (int y = 0; y < h; y++)
-            {
-                for (int x = 0; x < w; x++)
-                {
-                    int i = y * w + x;
-                    Color c = src[i];
-                    if (c.a > 0f)
-                    {
-                        dst[i] = c;
-                        continue;
-                    }
-
-                    Vector3 colSum = Vector3.zero;
-                    float aSum = 0f;
-
-                    foreach (var off in offsets)
-                    {
-                        int nx = x + off.x, ny = y + off.y;
-                        if (nx < 0 || nx >= w || ny < 0 || ny >= h)
-                        {
-                            continue;
-                        }
-
-                        Color n = src[ny * w + nx];
-                        if (n.a > 0f)
-                        {
-                            colSum += new Vector3(n.r * n.a, n.g * n.a, n.b * n.a);
-                            aSum += n.a;
-                        }
-                    }
-
-                    if (aSum > 0f)
-                    {
-                        var avg = colSum / aSum;
-                        dst[i] = new Color(avg.x, avg.y, avg.z, 0f);
-                    }
-                    else
-                    {
-                        dst[i] = c;
-                    }
-                }
-            }
-
-            tex.SetPixels(dst);
-            tex.Apply(updateMipmaps: false, makeNoLongerReadable: true);
-        }
-
         private static Texture2D LoadTexture(string path)
         {
             byte[] data = File.ReadAllBytes(path);
-            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
-            tex.LoadImage(data, false); // Keep readable
+
+            // Force sRGB interpretation regardless of project color space
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false, linear: false);
+            tex.LoadImage(data, markNonReadable: false);
 
             tex.filterMode = FilterMode.Bilinear;
-            tex.Apply();
+            tex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
 
             return tex;
         }
 
-        private static Texture2D PreBlurAndResize(Texture2D source, int outW, int outH)
+        private Texture2D PreBlurAndResize(RenderTexture source, int outW, int outH)
         {
             // Prepare descriptors
             var desc = new RenderTextureDescriptor(source.width, source.height,
                 RenderTextureFormat.ARGB32, 0)
             {
-                sRGB = QualitySettings.activeColorSpace == ColorSpace.Linear,
+                sRGB = true,
                 useMipMap = false,
                 autoGenerateMips = false
             };
@@ -606,29 +571,22 @@ public class ResizeSpriterProject : EditorWindow
             var rtV = RenderTexture.GetTemporary(desc);
             rtV.wrapMode = TextureWrapMode.Clamp;
 
-            var blurMat = new Material(Shader.Find("Hidden/SeparableGaussianBlur"));
-
             // Shader expects _Direction = (1,0) or (0,1)
-            blurMat.SetVector("_Direction", Vector2.right);
-            Graphics.Blit(source, rtH, blurMat);
+            _blurMat.SetVector("_Direction", Vector2.right);
+            Graphics.Blit(source, rtH, _blurMat);
 
-            blurMat.SetVector("_Direction", Vector2.up);
-            Graphics.Blit(rtH, rtV, blurMat);
+            _blurMat.SetVector("_Direction", Vector2.up);
+            Graphics.Blit(rtH, rtV, _blurMat);
 
             // Now bicubic-resize the blurred RT into final RT
             desc.width = outW;
             desc.height = outH;
             var rtFinal = RenderTexture.GetTemporary(desc);
 
-            var bicubicMat = new Material(Shader.Find("Hidden/BicubicResize"));
-            Graphics.Blit(rtV, rtFinal, bicubicMat);
+            Graphics.Blit(rtV, rtFinal, _bicubicMat);
 
-            // Read back to Texture2D
             RenderTexture.active = rtFinal;
-            var result = new Texture2D(outW, outH,
-                TextureFormat.RGBA32,
-                mipChain: false,
-                linear: QualitySettings.activeColorSpace == ColorSpace.Linear);
+            var result = new Texture2D(outW, outH, TextureFormat.RGBA32, mipChain: false, linear: false);
             result.ReadPixels(new Rect(0, 0, outW, outH), 0, 0);
             result.Apply(updateMipmaps: false, makeNoLongerReadable: false);
 
@@ -637,9 +595,6 @@ public class ResizeSpriterProject : EditorWindow
             RenderTexture.ReleaseTemporary(rtH);
             RenderTexture.ReleaseTemporary(rtV);
             RenderTexture.ReleaseTemporary(rtFinal);
-
-            DestroyImmediate(blurMat);
-            DestroyImmediate(bicubicMat);
 
             return result;
         }
@@ -650,5 +605,29 @@ public class ResizeSpriterProject : EditorWindow
             File.WriteAllBytes(outputPath, pngData);
             AssetDatabase.Refresh();
         }
+
+        #region IDisposable Support
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            DestroyImmediate(_bleedMat);
+            DestroyImmediate(_blurMat);
+            DestroyImmediate(_bicubicMat);
+
+            _disposed = true;
+
+            GC.SuppressFinalize(this);
+        }
+
+        ~ImageResizer()
+        {
+            Dispose();
+        }
+        #endregion
+
     }
 }

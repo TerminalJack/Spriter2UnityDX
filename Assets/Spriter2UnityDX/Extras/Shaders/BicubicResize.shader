@@ -15,7 +15,8 @@ Shader "Hidden/BicubicResize"
       #pragma fragment frag
       #include "UnityCG.cginc"
 
-      sampler2D _MainTex;
+      UNITY_DECLARE_TEX2D(_MainTex);
+
       float4    _MainTex_TexelSize; // x=1/width, y=1/height
 
       struct v2f
@@ -66,7 +67,8 @@ Shader "Hidden/BicubicResize"
           float2 sampleUV = samplePx / texSize;
           sampleUV = saturate(sampleUV); // clamp to 0..1
 
-          float4 c = tex2D(_MainTex, sampleUV);
+          float4 c = UNITY_SAMPLE_TEX2D(_MainTex, sampleUV);
+
           float w = CubicWeight(xx - frac.x)
                   * CubicWeight(yy - frac.y);
 
