@@ -297,7 +297,9 @@ Many commercial Spriter projects include oversized image files--far larger than 
 
 This utility scales an entire Spriter project--from 5% to 95% of its original size--by generating resized images and updating the .scml file accordingly.
 
->If you're not satisfied with the image quality produced by the utility, you can replace the resized images using your preferred image editor. Since the .scml file now reflects the new dimensions, just ensure you apply the same scaling factor used during the initial resize.
+>If you're not satisfied with the image quality produced by the utility, you can replace the resized images using your preferred image editor once you have generated an updated .scml file with the utility.<br>
+<br>
+>Because the .scml file now reflects the new dimensions, just ensure you apply the same scaling factor used during the initial resize so that the images are of similar size.  The images your image editor produces don't need to have the exact same dimensions.  They should work fine so long as they are within a pixel or two.
 
 You can launch the utility in three ways:
 - Right-click a .scml file in Unity’s Project Browser and select **Resize Spriter Project...**
@@ -315,6 +317,12 @@ The `Output File and Folder` field allows you to select both the output file nam
 At this time, double-check the `Output File and Folder` field.  Several dozen image files will be written to this folder so make sure it is correct.
 
 Finally, select the scaling factor for the generated output.
+
+>What's the best scaling factor to use?<br>
+<br>
+>There is an `Ideal Scaling Factor Calculator` script in the `Extras/` folder that can help you find the ideal scaling factor for a particular target resolution.  The scale it calculates essentially results in textures that are one-to-one with regard to texels-to-pixels at the target resolution. <br>
+<br>
+>This will give you a result that helps minimize sampling artifacts, such as pixel crawl--the shimmering, grid‑like flicker that can appear when a sprite moves.
 
 Once both the `Input File` field and the `Output File and Folder` field are filled-out and valid, the `Create` button will be enabled.
 
