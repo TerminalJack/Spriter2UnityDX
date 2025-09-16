@@ -34,6 +34,8 @@ namespace Spriter2UnityDX.Importing
         public string AnimationName { get; set; }
         public List<string> ImportedPrefabs => _importedPrefabs;
 
+        private static readonly double _maxTaskTimePerFrame_s = 0.013;
+
         public string MessagePrefix
         {
             get
@@ -194,37 +196,55 @@ namespace Spriter2UnityDX.Importing
 
         void OnEditorUpdate()
         {
-            if (_task == null || !_task.MoveNext())
+            if (_task == null)
             {
                 EditorApplication.update -= OnEditorUpdate;
-                _task = null;
-                _isRunning = false;
+                return;
+            }
 
-                if (_isCanceled)
+            double startTime = EditorApplication.timeSinceStartup;
+
+            while (EditorApplication.timeSinceStartup - startTime < _maxTaskTimePerFrame_s)
+            {
+                if (!_task.MoveNext())
                 {
-                    Status("Import canceled.");
+                    HandleTaskCompletion();
+                    break;
                 }
-                else
+                else if (_task.Current is string msg && !string.IsNullOrEmpty(msg))
                 {
-                    Status("Import complete.  The following prefabs were imported:");
-
-                    foreach (var prefabPath in _importedPrefabs)
-                    {
-                        Status($"    '{prefabPath}'");
-                    }
+                    Status(msg);
                 }
             }
-            else if (_task.Current is string msg && !string.IsNullOrEmpty(msg))
+
+            _scroll.y = float.MaxValue;
+            Repaint();
+        }
+
+        private void HandleTaskCompletion()
+        {
+            EditorApplication.update -= OnEditorUpdate;
+            _task = null;
+            _isRunning = false;
+
+            if (_isCanceled)
             {
-                Status(msg);
+                Status("Import canceled.");
+            }
+            else
+            {
+                Status("Import complete.  The following prefabs were imported:");
+
+                foreach (var prefabPath in _importedPrefabs)
+                {
+                    Status($"    '{prefabPath}'");
+                }
             }
         }
 
         private void Status(string message)
         {
             _logs.Add(message);
-            _scroll.y = float.MaxValue;
-            Repaint();
         }
     }
 }
