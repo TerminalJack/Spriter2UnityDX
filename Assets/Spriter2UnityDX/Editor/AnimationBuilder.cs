@@ -381,12 +381,12 @@ namespace Spriter2UnityDX.Animations
                             // The SpriteRenderer is on this game object or a child.
                             var rendererTransform = child.GetComponentInChildren<SpriteRenderer>(includeInactive: true).transform;
 
-                            if (ScmlImportOptions.options != null && ScmlImportOptions.options.useUnitySpriteSwapping)
+                            if (ScmlImportOptions.options != null && ScmlImportOptions.options.directSpriteSwapping)
                             {
                                 SetSpriteSwapKeys(rendererTransform, timeLine, clip, animation);
                             }
                             else
-                            {   // ! Can Unity's Sprite Library / Sprite Resolver replace this?
+                            {
                                 var swapper = rendererTransform.GetComponent<TextureController>();
                                 if (swapper == null)
                                 {   //Add a Texture Controller if one doesn't already exist
@@ -912,9 +912,10 @@ namespace Spriter2UnityDX.Animations
 
         private int GetIndexOrAdd(ref Sprite[] sprites, Sprite sprite)
         {
+            // If the list already contains the sprite, return index.  Otherwise, add sprite to list , then return index.
             var index = ArrayUtility.IndexOf(sprites, sprite); //If the array already contains the sprite, return index
             if (index < 0)
-            {                                   //Otherwise, add sprite to array, then return index
+            {
                 ArrayUtility.Add(ref sprites, sprite);
                 index = ArrayUtility.IndexOf(sprites, sprite);
             }

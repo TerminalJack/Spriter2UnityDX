@@ -25,6 +25,8 @@ namespace Spriter2UnityDX.Prefabs
     public class PrefabBuilder : UnityEngine.Object
     {
         private ScmlProcessingInfo ProcessingInfo;
+        private List<string> _previousActiveMapNames;
+
         public PrefabBuilder(ScmlProcessingInfo info)
         {
             ProcessingInfo = info;
@@ -101,6 +103,8 @@ namespace Spriter2UnityDX.Prefabs
                     instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab); //instantiates the prefab if it does exist
                     ProcessingInfo.ModifiedPrefabs.Add(prefab);
                 }
+
+                SaveAndRemoveCharacterMaps(instance);
 
                 var prefabBuildProcess =
                     IteratorUtils.SafeEnumerable(
@@ -222,8 +226,31 @@ namespace Spriter2UnityDX.Prefabs
 
             buildCtx.AnimationName = "";
 
-            // This is where we finish adding 'possible parents' to virtual parent components.
+            instance.GetOrAddComponent<SortingGroup>();
 
+            FinalizeVirtualParentProcessing(entityInfo, transforms);
+            ProcessCharacterMaps(entity, instance, folders);
+
+            EditorUtility.SetDirty(instance);
+
+            PrefabUtility.SaveAsPrefabAssetAndConnect(instance, prefabPath, InteractionMode.AutomatedAction);
+            DestroyImmediate(instance); //Apply the instance's changes to the prefab, then destroy the instance.
+
+            buildCtx.EntityName = "";
+
+            if (buildCtx.ImportedPrefabs.Contains(prefabPath))
+            {
+                Debug.LogWarning($"The prefab at '{prefabPath}' has been imported more than once in the same import " +
+                    "session.  This is likely due to 1) multiple .scml files in the same folder that have entities " +
+                    "that share the same name, or 2) a single .scml file with duplicate entity names.");
+            }
+
+            buildCtx.ImportedPrefabs.Add(prefabPath);
+        }
+
+        private void FinalizeVirtualParentProcessing(SpriterEntityInfo entityInfo, Dictionary<string, Transform> transforms)
+        {
+            // Add 'possible parents' to all of the virtual parent components.
             foreach (var info in entityInfo.boneInfo.Values.Cast<SpriterEntityInfo.SpriterInfoBase>()
                 .Concat(entityInfo.objectInfo.Values))
             {
@@ -247,24 +274,150 @@ namespace Spriter2UnityDX.Prefabs
                     }
                 }
             }
+        }
 
-            instance.GetOrAddComponent<SortingGroup>();
-
-            EditorUtility.SetDirty(instance);
-
-            PrefabUtility.SaveAsPrefabAssetAndConnect(instance, prefabPath, InteractionMode.AutomatedAction);
-            DestroyImmediate(instance); //Apply the instance's changes to the prefab, then destroy the instance.
-
-            buildCtx.EntityName = "";
-
-            if (buildCtx.ImportedPrefabs.Contains(prefabPath))
+        private void SaveAndRemoveCharacterMaps(GameObject instance)
+        {
+            // If the prefab already exists during an import AND it has a character map controller, all of the active
+            // maps have to be disabled during the import and re-applied afterward.
+            var characterController = instance.GetComponent<CharacterMapController>();
+            if (characterController != null)
             {
-                Debug.LogWarning($"The prefab at '{prefabPath}' has been imported more than once in the same import " +
-                    "session.  This is likely due to 1) multiple .scml files in the same folder that have entities " +
-                    "that share the same name, or 2) a single .scml file with duplicate entity names.");
+                _previousActiveMapNames = characterController.activeMapNames.ToList();
+                characterController.Clear();
+            }
+            else
+            {
+                _previousActiveMapNames = null;
+            }
+        }
+
+        private void ProcessCharacterMaps(Entity entity, GameObject instance, IDictionary<int, IDictionary<int, Sprite>> folders)
+        {
+            if (entity.characterMaps.Count == 0 || ScmlImportOptions.options == null || !ScmlImportOptions.options.createCharacterMaps)
+            {   // Either the feature is disabled or this entity doesn't have any character maps.
+                var c = instance.GetComponent<CharacterMapController>();
+                if (c != null)
+                {
+                    DestroyImmediate(c);
+                }
+
+                return;
             }
 
-            buildCtx.ImportedPrefabs.Add(prefabPath);
+            var characterMapController = instance.GetOrAddComponent<CharacterMapController>();
+
+            // Build characterMapController.baseMap...
+
+            characterMapController.baseMap.Clear();
+
+            // Note: This code here is the reason why all active maps have to be temporarily removed.
+            foreach (var renderer in instance.GetComponentsInChildren<SpriteRenderer>(includeInactive: true))
+            {
+                // Map sprites to the appropriate transform and, if appropriate, the texture controller index.
+
+                Transform targetTransform = renderer.transform;
+                var textureController = targetTransform.GetComponent<TextureController>();
+
+                if (textureController)
+                {
+                    for (int i = 0; i < textureController.Sprites.Length; ++i)
+                    {
+                        var sprite = textureController.Sprites[i];
+                        characterMapController.baseMap.Add(sprite, new SpriteMapTarget(targetTransform, i));
+                    }
+                }
+                else
+                {
+                    characterMapController.baseMap.Add(renderer.sprite, new SpriteMapTarget(targetTransform, 0));
+                }
+            }
+
+            characterMapController.Refresh(); // Apply _just_ the base map.
+
+            // Build characterMapController.availableMaps...
+
+            characterMapController.availableMaps.Clear();
+
+            foreach (var characterMap in entity.characterMaps)
+            {
+                var charMap = new CharacterMapping(characterMap.name);
+
+                foreach (var mapInstruction in characterMap.maps)
+                {
+                    Sprite srcSprite = TryGetSprite(folders, mapInstruction.folder, mapInstruction.file);
+
+                    if (srcSprite == null)
+                    {
+                        Debug.LogWarning($"Spriter2UnityDX: ProcessCharacterMaps(): For entity '{entity.name}', " +
+                            $"character map '{characterMap.name}', the source sprite at folder: {mapInstruction.folder}, " +
+                            $"file: {mapInstruction.file} wasn't found.");
+
+                        continue;
+                    }
+
+                    Sprite targetSprite = null;
+
+                    if (mapInstruction.target_folder != -1 && mapInstruction.target_file != -1)
+                    {
+                        targetSprite = TryGetSprite(folders, mapInstruction.target_folder, mapInstruction.target_file);
+
+                        if (targetSprite == null)
+                        {
+                            Debug.LogWarning($"Spriter2UnityDX: ProcessCharacterMaps(): For entity '{entity.name}', " +
+                                $"character map '{characterMap.name}', the target sprite at folder: {mapInstruction.folder}, " +
+                                $"file: {mapInstruction.file} wasn't found.");
+
+                            continue;
+                        }
+                    }
+
+                    var spriteMapping = characterMapController.baseMap.spriteMaps.Find(s => s.sprite == srcSprite);
+
+                    if (spriteMapping != null)
+                    {
+                        foreach (var target in spriteMapping.targets)
+                        {
+                            charMap.Add(targetSprite, target);
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"Spriter2UnityDX: ProcessCharacterMaps(): For entity '{entity.name}', " +
+                            $"character map '{characterMap.name}', the source sprite at folder: {mapInstruction.folder}, " +
+                            $"file: {mapInstruction.file} doesn't exist in the base map.");
+                    }
+                }
+
+                characterMapController.availableMaps.Add(charMap);
+            }
+
+            if (_previousActiveMapNames != null)
+            {
+                // Remove any invalid character map names from _previousActiveMapNames (from pre-existing
+                // character map controllers.)
+                _previousActiveMapNames.RemoveAll(name =>
+                {
+                    return characterMapController.availableMaps.Find(m => m.name == name) == null;
+                });
+
+                characterMapController.activeMapNames = _previousActiveMapNames.ToList();
+                characterMapController.Refresh(); // Apply any user-defined mappings.
+
+                _previousActiveMapNames = null;
+            }
+        }
+
+        private Sprite TryGetSprite(IDictionary<int, IDictionary<int, Sprite>> folders, int folderIdx, int fileIdx)
+        {
+            try
+            {
+                return folders[folderIdx][fileIdx];
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         private void ProcessBones(Dictionary<int, string> parents, Dictionary<string, Transform> transforms,

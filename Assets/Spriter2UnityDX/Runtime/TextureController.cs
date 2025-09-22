@@ -40,7 +40,12 @@ namespace Spriter2UnityDX
 			// Ignore changes that happen during transitions because it might get messy otherwise.
             if (!IsTransitioning())
             {
-                srenderer.sprite = Sprites[Mathf.RoundToInt(DisplayedSprite)];
+                int spriteIdx = Mathf.RoundToInt(DisplayedSprite);
+
+                if (spriteIdx >= 0 && spriteIdx < Sprites.Length)
+                {
+                    srenderer.sprite = Sprites[spriteIdx];
+                }
             }
         }
 
