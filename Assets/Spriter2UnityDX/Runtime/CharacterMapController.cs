@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEditor.SceneManagement;
 
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditorInternal;
+using UnityEditor.SceneManagement;
 #endif
 
 namespace Spriter2UnityDX
@@ -155,15 +155,27 @@ namespace Spriter2UnityDX
                     if (textureController)
                     {
                         textureController.Sprites[imageIndex] = spriteMap.sprite;
+#if UNITY_EDITOR
+                        EditorUtility.SetDirty(textureController);
+                        PrefabUtility.RecordPrefabInstancePropertyModifications(textureController);
+#endif
 
                         if (textureController.DisplayedSprite == imageIndex)
                         {
                             spriteRenderer.sprite = spriteMap.sprite;
+#if UNITY_EDITOR
+                            EditorUtility.SetDirty(spriteRenderer);
+                            PrefabUtility.RecordPrefabInstancePropertyModifications(spriteRenderer);
+#endif
                         }
                     }
                     else
                     {
                         spriteRenderer.sprite = spriteMap.sprite;
+#if UNITY_EDITOR
+                        EditorUtility.SetDirty(spriteRenderer);
+                        PrefabUtility.RecordPrefabInstancePropertyModifications(spriteRenderer);
+#endif
                     }
                 }
             }
@@ -281,6 +293,7 @@ namespace Spriter2UnityDX
                         }
 
                         EditorUtility.SetDirty(controller);
+                        PrefabUtility.RecordPrefabInstancePropertyModifications(controller);
                     }
 
                     GUI.backgroundColor = oldBG;
@@ -317,7 +330,7 @@ namespace Spriter2UnityDX
 
                 if (EditorGUI.EndChangeCheck())
                 {   // Something changed: add, remove, reorder, or edit strings
-                    EditorApplication.delayCall += () =>  RefreshCharacterMapController(characterMapController, logWarnings: false);
+                    EditorApplication.delayCall += () => RefreshCharacterMapController(characterMapController, logWarnings: false);
                 }
 
                 if (GUILayout.Button(_applyActiveMapsButtonContent))
@@ -345,17 +358,9 @@ namespace Spriter2UnityDX
             private void RefreshCharacterMapController(CharacterMapController characterMapController, bool logWarnings = true)
             {
                 characterMapController.Refresh(logWarnings);
+
                 EditorUtility.SetDirty(characterMapController);
-
-                foreach (var textureController in characterMapController.GetComponentsInChildren<TextureController>())
-                {
-                    EditorUtility.SetDirty(textureController);
-                }
-
-                foreach (var spriteRenderer in characterMapController.GetComponentsInChildren<SpriteRenderer>())
-                {
-                    EditorUtility.SetDirty(spriteRenderer);
-                }
+                PrefabUtility.RecordPrefabInstancePropertyModifications(characterMapController);
 
                 var stage = PrefabStageUtility.GetCurrentPrefabStage();
                 if (stage != null)

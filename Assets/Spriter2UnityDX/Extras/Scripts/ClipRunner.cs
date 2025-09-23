@@ -185,6 +185,7 @@ namespace Spriter2UnityDX.Extras
             return root.InverseTransformPoint(bottomWorld).y;
         }
 
+#if UNITY_EDITOR
         private void OnDrawGizmos()
         {
             if (!Application.isPlaying && labelAnchor != null)
@@ -200,6 +201,7 @@ namespace Spriter2UnityDX.Extras
                 Handles.Label(labelAnchor.position, "Clip name [1 of X]", style);
             }
         }
+#endif
 
         private void OnGUI()
         {
