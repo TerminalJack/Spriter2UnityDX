@@ -143,7 +143,7 @@ The following components are used at runtime (and in some cases, in-editor) to s
 
 ### `Character Map Controller`
 
-![Character Map Controller Image](Docs/Images/CharacterMapControllerV2.png)
+![Character Map Controller Image](Docs/Images/CharacterMapControllerv2.png)
 
 Stay tuned for more information on this feature.
 
