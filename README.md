@@ -143,9 +143,69 @@ The following components are used at runtime (and in some cases, in-editor) to s
 
 ### `Character Map Controller`
 
-![Character Map Controller Image](Docs/Images/CharacterMapControllerv2.png)
+![Character Map Controller Image](Docs/Images/CharacterMapController_v3.png)
 
-Stay tuned for more information on this feature.
+>Whether `Character Map Controllers` are created, or not, is determined at the time of import.  Uncheck the `Direct Sprite Swapping` checkbox *and* check the `Create Character Maps` checkbox to create a `Character Map Controller` component for each of the Spriter entities that have one or more character maps defined.
+
+The `Character Map Controller` inspector, seen above, can be used to apply design-time character map changes to a prefab or a prefab instance.
+
+The `Active Maps` property shows which maps are currently active.  You can change the order of the maps via drag-and-drop.  Use the drag handle at the left of the item for this.  The order that the maps are applied is from the top-most map downward.  Many times the order is important so if you don't see the result you think you should then try reordering the items.
+
+You can remove a map by selecting it and clicking `-` at the bottom of the list.  Clicking `+` will allow you to add a new map manually.  An easier way to add and remove maps is via the `Available Maps` property.
+
+Expand the `Available Maps` property to see all of the maps that have been defined for the entity.  Click the `+` button to the right of a map name to add it to `Active Maps`.  If the map is already active then a `-` button will be available.  Clicking it will remove the map from `Active Maps`.
+
+If you feel that the list of items shown in `Active Maps` is not up to date then clicking the `Apply Active Maps` button can be used to ensure that they are.  This will also validate all of the map names in `Active Maps`.  (Check the console.)
+
+### Character Map Controller API
+---
+To make character map changes at runtime, use the `Character Map Controller` API.
+
+### Properties
+
+#### `public List<string> activeMapNames`
+
+`activeMapNames` holds the names of each of the active maps.  You can modify this list directly or use the convenience methods `Clear()`, `Add()`, and `Remove()`.  If you need to make a lot of changes at once then modifying the list directly will be more performant.  If you do modify the list directly then be sure to call `Refresh()` afterward to apply your changes.
+
+#### `public List<CharacterMapping> availableMaps`
+
+This list contains all of the maps that are defined for this prefab.  These are determined by the corresponding Spriter entity.  If you need to make changes to this list then you are strongly encouraged to make them to the original Spriter file since any changes you make will be lost when/if you do a reimport.
+
+#### `public CharacterMapping baseMap`
+
+This is a map that defines the prefab's default sprite mapping.  This is used as the base for all other maps.  It is applied before any other maps are applied.  You are advised to leave this as-is.  Any changes will likely break future reimports.
+
+### Methods
+
+#### `void Clear()`
+
+Removes all map names from the `activeMapNames` list and applies the change via `Refresh()`.  This will reset all of the sprites to the mapping defined in the `baseMap` property.
+
+---
+
+#### `bool Add(string mapName)`
+
+Adds the map, `mapName`, to the end of the `activeMapNames` list and applies the change via `Refresh()`.  If `mapName` was already in the list then it will be removed from its current position and added to the end.
+
+**Returns**
+
+Returns `true` if successful.  Returns `false` if `mapName` is not a valid map name.  That is, it wasn't found in the `availableMaps` list.
+
+---
+
+#### `bool Remove(string mapName)`
+
+Removes the map, `mapName`, from the `activeMapNames` list and applies the change via `Refresh()`.
+
+**Returns**
+
+Returns `true` if `mapName` was successfully removed.  Returns `false` if `mapName` wasn't found in the `activeMapNames` list.
+
+---
+
+#### `void Refresh(bool logWarnings = true)`
+
+Applies all of the maps in the `activeMapNames` list.  The mapping defined in `baseMap` is applied first then each of the mappings in `activeMapNames` are applied.  If any map names in `activeMapNames` is invalid *and* `logWarnings` is `true`, then a warning will be logged to the console.
 
 ### `Dynamic Pivot 2D`
 

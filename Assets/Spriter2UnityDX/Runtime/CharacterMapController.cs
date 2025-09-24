@@ -155,27 +155,15 @@ namespace Spriter2UnityDX
                     if (textureController)
                     {
                         textureController.Sprites[imageIndex] = spriteMap.sprite;
-#if UNITY_EDITOR
-                        EditorUtility.SetDirty(textureController);
-                        PrefabUtility.RecordPrefabInstancePropertyModifications(textureController);
-#endif
 
                         if (textureController.DisplayedSprite == imageIndex)
                         {
                             spriteRenderer.sprite = spriteMap.sprite;
-#if UNITY_EDITOR
-                            EditorUtility.SetDirty(spriteRenderer);
-                            PrefabUtility.RecordPrefabInstancePropertyModifications(spriteRenderer);
-#endif
                         }
                     }
                     else
                     {
                         spriteRenderer.sprite = spriteMap.sprite;
-#if UNITY_EDITOR
-                        EditorUtility.SetDirty(spriteRenderer);
-                        PrefabUtility.RecordPrefabInstancePropertyModifications(spriteRenderer);
-#endif
                     }
                 }
             }
@@ -292,8 +280,7 @@ namespace Spriter2UnityDX
                             controller.Add(mapName);
                         }
 
-                        EditorUtility.SetDirty(controller);
-                        PrefabUtility.RecordPrefabInstancePropertyModifications(controller);
+                        RefreshCharacterMapController(controller);
                     }
 
                     GUI.backgroundColor = oldBG;
@@ -361,6 +348,18 @@ namespace Spriter2UnityDX
 
                 EditorUtility.SetDirty(characterMapController);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(characterMapController);
+
+                foreach (var textureController in characterMapController.GetComponentsInChildren<TextureController>())
+                {
+                    EditorUtility.SetDirty(textureController);
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(textureController);
+                }
+
+                foreach (var spriteRenderer in characterMapController.GetComponentsInChildren<SpriteRenderer>())
+                {
+                    EditorUtility.SetDirty(spriteRenderer);
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(spriteRenderer);
+                }
 
                 var stage = PrefabStageUtility.GetCurrentPrefabStage();
                 if (stage != null)
