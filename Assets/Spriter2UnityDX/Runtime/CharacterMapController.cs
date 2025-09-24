@@ -3,9 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 
 #if UNITY_EDITOR
+
 using UnityEditor;
 using UnityEditorInternal;
+
+#if UNITY_2021_1_OR_NEWER
 using UnityEditor.SceneManagement;
+#else
+using UnityEditor.SceneManagement;
+using UnityEditor.Experimental.SceneManagement;
+#endif
+
 #endif
 
 namespace Spriter2UnityDX
@@ -271,16 +279,21 @@ namespace Spriter2UnityDX
 
                     if (GUI.Button(addRemoveButtonRect, isActiveMapName ? "-" : "+"))
                     {
-                        if (isActiveMapName)
-                        {
-                            controller.Remove(mapName);
-                        }
-                        else
-                        {
-                            controller.Add(mapName);
-                        }
+                        Event.current.Use();
 
-                        RefreshCharacterMapController(controller);
+                        EditorApplication.delayCall += () =>
+                        {
+                            if (isActiveMapName)
+                            {
+                                controller.Remove(mapName);
+                            }
+                            else
+                            {
+                                controller.Add(mapName);
+                            }
+
+                            RefreshCharacterMapController(controller);
+                        };
                     }
 
                     GUI.backgroundColor = oldBG;
@@ -324,6 +337,8 @@ namespace Spriter2UnityDX
                 {
                     RefreshCharacterMapController(characterMapController);
                 }
+
+                _showAvailableMaps = true; // Force the list to stay open since some versions of Unity will close it unexpectedly.
 
                 _showAvailableMaps = EditorGUILayout.Foldout(
                     _showAvailableMaps,
