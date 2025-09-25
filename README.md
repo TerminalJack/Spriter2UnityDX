@@ -143,7 +143,7 @@ The following components are used at runtime (and in some cases, in-editor) to s
 
 ### `Character Map Controller`
 
-![Character Map Controller Image](Docs/Images/CharacterMapController_v3.png)
+![Character Map Controller Image](Docs/Images/CharacterMapController_v4.png)
 
 >Whether `Character Map Controllers` are created, or not, is determined at the time of import.  Uncheck the `Direct Sprite Swapping` checkbox *and* check the `Create Character Maps` checkbox to create a `Character Map Controller` component for each of the Spriter entities that have one or more character maps defined.
 
@@ -151,7 +151,7 @@ The `Character Map Controller` inspector, seen above, can be used to apply desig
 
 The `Active Maps` property shows which maps are currently active.  You can change the order of the maps via drag-and-drop.  Use the drag handle at the left of the item for this.  The order that the maps are applied is from the top-most map downward.  Many times the order is important so if you don't see the result you think you should then try reordering the items.
 
-You can remove a map by selecting it and clicking `-` at the bottom of the list.  Clicking `+` will allow you to add a new map manually.  An easier way to add and remove maps is via the `Available Maps` property.
+You can remove a map by clicking the `-` button on the right or by selecting it and clicking `-` at the bottom of the list.  Clicking `+` at the bottom of the list will allow you to add a new map manually.  An easier way to add and remove maps is via the `Available Maps` property.
 
 Expand the `Available Maps` property to see all of the maps that have been defined for the entity.  Click the `+` button to the right of a map name to add it to `Active Maps`.  If the map is already active then a `-` button will be available.  Clicking it will remove the map from `Active Maps`.
 

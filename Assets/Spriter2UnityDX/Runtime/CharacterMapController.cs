@@ -206,14 +206,35 @@ namespace Spriter2UnityDX
             private SerializedProperty _baseMapProperty;
             private SerializedProperty _availableMapsProperty;
 
-            private ReorderableList _availableMapsList;
             private bool _showAvailableMaps;
+            private ReorderableList _availableMapsList;
+
+            private bool _showActiveMapNames;
+            private ReorderableList _activeMapNamesList;
+
+            private CharacterMapController _characterMapController;
 
             private void OnEnable()
             {
+                _characterMapController = target as CharacterMapController;
+
                 _activeMapNamesProperty = serializedObject.FindProperty("activeMapNames");
                 _baseMapProperty = serializedObject.FindProperty("baseMap");
                 _availableMapsProperty = serializedObject.FindProperty("availableMaps");
+
+                _activeMapNamesList = new ReorderableList(
+                    serializedObject,
+                    _activeMapNamesProperty,
+                    draggable: true,
+                    displayHeader: false,
+                    displayAddButton: true,
+                    displayRemoveButton: true
+                );
+
+                _activeMapNamesList.headerHeight = 0;
+
+                _activeMapNamesList.drawElementCallback = OnActiveMapNamesDrawElement;
+                _activeMapNamesList.onReorderCallback = OnActiveMapNamesReorder;
 
                 _availableMapsList = new ReorderableList(
                     serializedObject,
@@ -224,118 +245,183 @@ namespace Spriter2UnityDX
                     displayRemoveButton: true
                 );
 
-                _availableMapsList.elementHeightCallback = index =>
+                _availableMapsList.headerHeight = 0;
+
+                _availableMapsList.elementHeightCallback = OnAvailableMapsElementHeight;
+                _availableMapsList.drawElementCallback = OnAvailableMapsDrawElement;
+            }
+
+            private void OnActiveMapNamesReorder(ReorderableList _)
+            {
+#if !UNITY_2020_1_OR_NEWER
+                EditorApplication.delayCall += () => RefreshCharacterMapController(logWarnings: false);
+#endif
+            }
+
+            private void OnActiveMapNamesDrawElement(Rect rect, int index, bool isActive, bool isFocused)
+            {
+                rect.y += 2; // small vertical padding
+
+                SerializedProperty element = _activeMapNamesProperty.GetArrayElementAtIndex(index);
+
+                var fieldRect = new Rect(rect.x, rect.y, rect.width - 34f, EditorGUIUtility.singleLineHeight);
+
+                EditorGUI.PropertyField(
+                    fieldRect,
+                    element,
+                    GUIContent.none // Don't show the element #.
+                );
+
+                // '-' Button on the right
+                var removeButtonRect = new Rect(
+                    fieldRect.x + fieldRect.width + 4f,
+                    rect.y,
+                    24f,
+                    EditorGUIUtility.singleLineHeight - 1f
+                );
+
+                Color oldBG = GUI.backgroundColor;
+
+                GUI.backgroundColor = EditorGUIUtility.isProSkin
+                    ? new Color(0.75f, 0f, 0f)     // dark red
+                    : new Color(1f, 0.75f, 0.75f); // light red
+
+                if (GUI.Button(removeButtonRect, "-"))
                 {
-                    var element = _availableMapsProperty.GetArrayElementAtIndex(index);
+                    Event.current.Use();
 
-                    // Base line + spacing
-                    float height = EditorGUIUtility.singleLineHeight + 4;
+                    var mapName = element.stringValue;
 
-                    // If its foldout is open, add the full height of all child properties
-                    if (element.isExpanded)
+                    EditorApplication.delayCall += () =>
                     {
-                        height = EditorGUI.GetPropertyHeight(element, true) + 4;
-                    }
-
-                    return height;
-                };
-
-                _availableMapsList.drawElementCallback = (rect, index, isActive, isFocused) =>
-                {
-                    rect.y += 1;
-
-                    var element = _availableMapsProperty.GetArrayElementAtIndex(index);
-
-                    // Foldout field
-                    var fieldRect = new Rect(rect.x + 10f, rect.y, rect.width - 34f, EditorGUIUtility.singleLineHeight);
-                    EditorGUI.PropertyField(fieldRect, element);
-
-                    // +/- Button on the right
-                    var addRemoveButtonRect = new Rect(
-                        fieldRect.x + fieldRect.width + 4f,
-                        rect.y + 1f,
-                        24f,
-                        EditorGUIUtility.singleLineHeight - 1f
-                    );
-
-                    var controller = (CharacterMapController)target;
-                    var mapName = controller.availableMaps[index].name;
-                    bool isActiveMapName = controller.activeMapNames.Contains(mapName);
-
-                    Color oldBG = GUI.backgroundColor;
-
-                    if (EditorGUIUtility.isProSkin)
-                    {
-                        GUI.backgroundColor = isActiveMapName
-                            ? new Color(0.75f, 0f, 0f)     // red
-                            : new Color(0.2f, 0.8f, 0.2f); // green
-                    }
-                    else
-                    {
-                        GUI.backgroundColor = isActiveMapName
-                            ? new Color(1f, 0.75f, 0.75f) // red
-                            : new Color(0.7f, 1f, 0.7f);  // green
-                    }
-
-                    if (GUI.Button(addRemoveButtonRect, isActiveMapName ? "-" : "+"))
-                    {
-                        Event.current.Use();
-
-                        EditorApplication.delayCall += () =>
+                        if (_characterMapController.Remove(mapName))
                         {
-                            if (isActiveMapName)
-                            {
-                                controller.Remove(mapName);
-                            }
-                            else
-                            {
-                                controller.Add(mapName);
-                            }
+                            RefreshCharacterMapController();
+                        }
+                    };
+                }
 
-                            RefreshCharacterMapController(controller);
-                        };
-                    }
+                GUI.backgroundColor = oldBG;
+            }
 
-                    GUI.backgroundColor = oldBG;
+            private float OnAvailableMapsElementHeight(int index)
+            {
+                var element = _availableMapsProperty.GetArrayElementAtIndex(index);
 
-                    // If expanded, draw all of the children
-                    if (element.isExpanded)
+                // Base line + spacing
+                float height = EditorGUIUtility.singleLineHeight + 4;
+
+                // If its foldout is open, add the full height of all child properties
+                if (element.isExpanded)
+                {
+                    height = EditorGUI.GetPropertyHeight(element, true) + 4;
+                }
+
+                return height;
+            }
+
+            private void OnAvailableMapsDrawElement(Rect rect, int index, bool isActive, bool isFocused)
+            {
+                rect.y += 1;
+
+                var element = _availableMapsProperty.GetArrayElementAtIndex(index);
+
+                // Foldout field
+                var fieldRect = new Rect(rect.x + 10f, rect.y, rect.width - 34f, EditorGUIUtility.singleLineHeight);
+                EditorGUI.PropertyField(fieldRect, element);
+
+                // +/- Button on the right
+                var addRemoveButtonRect = new Rect(
+                    fieldRect.x + fieldRect.width + 4f,
+                    rect.y + 1f,
+                    24f,
+                    EditorGUIUtility.singleLineHeight - 1f
+                );
+
+                var mapName = _characterMapController.availableMaps[index].name;
+                bool isActiveMapName = _characterMapController.activeMapNames.Contains(mapName);
+
+                Color oldBG = GUI.backgroundColor;
+
+                if (EditorGUIUtility.isProSkin)
+                {
+                    GUI.backgroundColor = isActiveMapName
+                        ? new Color(0.75f, 0f, 0f)     // red
+                        : new Color(0.2f, 0.8f, 0.2f); // green
+                }
+                else
+                {
+                    GUI.backgroundColor = isActiveMapName
+                        ? new Color(1f, 0.75f, 0.75f) // red
+                        : new Color(0.7f, 1f, 0.7f);  // green
+                }
+
+                if (GUI.Button(addRemoveButtonRect, isActiveMapName ? "-" : "+"))
+                {
+                    Event.current.Use();
+
+                    EditorApplication.delayCall += () =>
                     {
-                        var childRect = new Rect(
-                            fieldRect.x,
-                            fieldRect.y,
-                            fieldRect.width + addRemoveButtonRect.width + 2f,
-                            EditorGUI.GetPropertyHeight(element, true) - EditorGUIUtility.singleLineHeight);
+                        if (isActiveMapName)
+                        {
+                            _characterMapController.Remove(mapName);
+                        }
+                        else
+                        {
+                            _characterMapController.Add(mapName);
+                        }
 
-                        EditorGUI.PropertyField(childRect, element, GUIContent.none, includeChildren: true);
-                    }
-                };
+                        RefreshCharacterMapController();
+                    };
+                }
+
+                GUI.backgroundColor = oldBG;
+
+                // If expanded, draw all of the children
+                if (element.isExpanded)
+                {
+                    var childRect = new Rect(
+                        fieldRect.x,
+                        fieldRect.y,
+                        fieldRect.width + addRemoveButtonRect.width + 2f,
+                        EditorGUI.GetPropertyHeight(element, true) - EditorGUIUtility.singleLineHeight);
+
+                    EditorGUI.PropertyField(childRect, element, GUIContent.none, includeChildren: true);
+                }
             }
 
             public override void OnInspectorGUI()
             {
                 serializedObject.Update();
 
-                var characterMapController = target as CharacterMapController;
-
                 GUI.enabled = false;
-                EditorGUILayout.ObjectField("Script", MonoScript.FromMonoBehaviour(characterMapController),
+                EditorGUILayout.ObjectField("Script", MonoScript.FromMonoBehaviour(_characterMapController),
                     typeof(CharacterMapController), false);
                 EditorGUILayout.Space();
                 GUI.enabled = true;
 
                 EditorGUI.BeginChangeCheck();
 
-                EditorGUILayout.PropertyField(_activeMapNamesProperty, _activeMapNamesContent);
+                _showActiveMapNames = EditorGUILayout.Foldout(
+                    _showActiveMapNames,
+                    _activeMapNamesContent,
+                    toggleOnLabelClick: true);
+
+                if (_showActiveMapNames)
+                {
+                    EditorGUI.indentLevel++;
+                    _activeMapNamesList.DoLayoutList();
+                    EditorGUI.indentLevel--;
+                }
 
                 if (EditorGUI.EndChangeCheck())
                 {   // Something changed: add, remove, reorder, or edit strings
-                    EditorApplication.delayCall += () => RefreshCharacterMapController(characterMapController, logWarnings: false);
+                    EditorApplication.delayCall += () => RefreshCharacterMapController(logWarnings: false);
                 }
 
                 if (GUILayout.Button(_applyActiveMapsButtonContent))
                 {
-                    RefreshCharacterMapController(characterMapController);
+                    RefreshCharacterMapController();
                 }
 
                 _showAvailableMaps = true; // Force the list to stay open since some versions of Unity will close it unexpectedly.
@@ -357,20 +443,20 @@ namespace Spriter2UnityDX
                 serializedObject.ApplyModifiedProperties();
             }
 
-            private void RefreshCharacterMapController(CharacterMapController characterMapController, bool logWarnings = true)
+            private void RefreshCharacterMapController(bool logWarnings = true)
             {
-                characterMapController.Refresh(logWarnings);
+                _characterMapController.Refresh(logWarnings);
 
-                EditorUtility.SetDirty(characterMapController);
-                PrefabUtility.RecordPrefabInstancePropertyModifications(characterMapController);
+                EditorUtility.SetDirty(_characterMapController);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(_characterMapController);
 
-                foreach (var textureController in characterMapController.GetComponentsInChildren<TextureController>())
+                foreach (var textureController in _characterMapController.GetComponentsInChildren<TextureController>())
                 {
                     EditorUtility.SetDirty(textureController);
                     PrefabUtility.RecordPrefabInstancePropertyModifications(textureController);
                 }
 
-                foreach (var spriteRenderer in characterMapController.GetComponentsInChildren<SpriteRenderer>())
+                foreach (var spriteRenderer in _characterMapController.GetComponentsInChildren<SpriteRenderer>())
                 {
                     EditorUtility.SetDirty(spriteRenderer);
                     PrefabUtility.RecordPrefabInstancePropertyModifications(spriteRenderer);
