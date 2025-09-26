@@ -2,11 +2,9 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEditor.SceneManagement;
 
-#if UNITY_2021_1_OR_NEWER
-using UnityEditor.SceneManagement;
-#else
-using UnityEditor.SceneManagement;
+#if !UNITY_2021_1_OR_NEWER
 using UnityEditor.Experimental.SceneManagement;
 #endif
 
@@ -23,7 +21,8 @@ namespace Spriter2UnityDX
 
         private static readonly GUIContent _baseMapContent = new GUIContent(
             text: "Base Map",
-            tooltip: "Base Map is this prefab's default character mapping.");
+            tooltip: "Base Map is this prefab's default character mapping.  You are advised to leave this " +
+            "unmodified since any changes will likely cause future imports to fail.");
 
         private static readonly GUIContent _availableMapsContent = new GUIContent(
             text: "Available Maps",
@@ -32,8 +31,8 @@ namespace Spriter2UnityDX
 
         private static readonly GUIContent _applyActiveMapsButtonContent = new GUIContent(
             text: "Apply Active Maps",
-            tooltip: "Click this to apply any changes that you make to Active Maps and validate the names in the " +
-            "list.  Any invalid names will be logged to the console.");
+            tooltip: "If you feel that the Active Maps haven't been applied then click this to manually apply them " +
+            "as well as validate the names in the list.  Any invalid names will be logged to the console.");
 
         private SerializedProperty _activeMapNamesProperty;
         private SerializedProperty _baseMapProperty;
@@ -277,11 +276,9 @@ namespace Spriter2UnityDX
 
             UpdateActiveMapsIndexMap();
 
-            EditorGUILayout.Space();
-
             if (string.IsNullOrEmpty(_activeMapsSearchString))
             {
-                EditorGUILayout.Space(3);
+                EditorGUILayout.Space(1);
 
                 UpdateActiveMapsIndexMap();
 
@@ -384,11 +381,9 @@ namespace Spriter2UnityDX
                 UpdateAvailableMapsIndexMap();
             }
 
-            EditorGUILayout.Space();
-
             if (string.IsNullOrEmpty(_availableMapsSearchString))
             {
-                EditorGUILayout.Space(4);
+                EditorGUILayout.Space(2);
 
                 UpdateAvailableMapsIndexMap();
 

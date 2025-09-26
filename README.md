@@ -143,7 +143,7 @@ The following components are used at runtime (and in some cases, in-editor) to s
 
 ### `Character Map Controller`
 
-![Character Map Controller Image](Docs/Images/CharacterMapController_v4.png)
+![Character Map Controller Image](Docs/Images/CharacterMapController_v5.png)
 
 >Whether `Character Map Controllers` are created, or not, is determined at the time of import.  Uncheck the `Direct Sprite Swapping` checkbox *and* check the `Create Character Maps` checkbox to create a `Character Map Controller` component for each of the Spriter entities that have one or more character maps defined.
 
@@ -156,6 +156,8 @@ You can remove a map by clicking the `-` button on the right or by selecting it 
 Expand the `Available Maps` property to see all of the maps that have been defined for the entity.  Click the `+` button to the right of a map name to add it to `Active Maps`.  If the map is already active then a `-` button will be available.  Clicking it will remove the map from `Active Maps`.
 
 If you feel that the list of items shown in `Active Maps` is not up to date then clicking the `Apply Active Maps` button can be used to ensure that they are.  This will also validate all of the map names in `Active Maps`.  (Check the console.)
+
+Both the `Active Maps` list and the `Available Maps` list have a search feature.  This will filter the lists based on a search string, which can be handy for large lists.
 
 ### Character Map Controller API
 ---
