@@ -533,7 +533,7 @@ namespace Spriter2UnityDX.Animations
 
                     if (changedZ)
                     {
-                        kfsZ.Add(new Keyframe(key.time_s, mref.z_index, inf, inf));
+                        kfsZ.Add(new Keyframe(TweakTime(key.time_s), mref.z_index, inf, inf));
                     }
 
                     if (!rendererIsVisible)
@@ -647,7 +647,7 @@ namespace Spriter2UnityDX.Animations
         private float GetFinalFrameInferredKeyValue<T>(TimeLine timeLine, Func<T, float> infoValue,
             Animation animation) where T : SpatialInfo
         {
-            // This will return the appropriate value for the the last frame of a animation based on whether 1) there
+            // This will return the appropriate value for the the last frame of an animation based on whether 1) there
             // is a time 0 auxiliary key, and if not 2) on whether the animation loops or not.
 
             var firstKey = timeLine.keys[0];
@@ -832,9 +832,12 @@ namespace Spriter2UnityDX.Animations
             CurveBuilder.ConcatenateCurvesInto(curve, allCurves.ToArray());
         }
 
-        private static AnimationCurve CreateCurve(CurveType curveType, float startTime, float endTime,
+        private AnimationCurve CreateCurve(CurveType curveType, float startTime, float endTime,
             float startValue, float endValue, float c1 = 0, float c2 = 0, float c3 = 0, float c4 = 0)
         {
+            startTime = TweakTime(startTime);
+            endTime = TweakTime(endTime);
+
             switch (curveType)
             {
                 case CurveType.instant:
@@ -857,12 +860,15 @@ namespace Spriter2UnityDX.Animations
         }
 
         private float TweakTime(float t)
-        {   // Some of the animation curves that should be instant need to have a tiny amount subtracted from their
-            // time's value so that the keyed property syncs-up with the other keyed properties.  This ensures that the
-            // time is just a little earlier than the other keys.
-            if (t > 0f)
+        {   // Ensure that the time is actually slightly before the intended time to account for the fact that certain
+            // values can't be exactly represented by a 32-bit float.  If this isn't done then some keys happen a frame
+            // too late.
+
+            const float adjustSeconds = 0.0001f;
+
+            if (t > adjustSeconds)
             {
-                t -= float.Epsilon;
+                t -= adjustSeconds;
             }
 
             return t;
@@ -870,18 +876,35 @@ namespace Spriter2UnityDX.Animations
 
         private void SetKeys(AnimationCurve curve, TimeLine timeLine, ref Sprite[] sprites, Animation animation)
         {
-            foreach (var key in timeLine.keys)
-            {   //Create a key for every key on its personal TimeLine
+            List<AnimationCurve> allCurves = new List<AnimationCurve>();
+
+            for (int i = 0; i < timeLine.keys.Count; ++i)
+            {   // Create a keyframe for every key on its personal TimeLine...
+                var key = timeLine.keys[i];
                 var info = (SpriteInfo)key.info;
 
-                //InTangent and OutTangent are set to Infinity to make transitions instant instead of gradual
-                curve.AddKey(new Keyframe(TweakTime(key.time_s), GetIndexOrAdd(ref sprites, Folders[info.folder][info.file]), inf, inf));
+                if (key.time_s >= animation.length)
+                {   // This key is on the last frame of the animation.  A key will have already been
+                    // created for it below.
+                    break;
+                }
+
+                var nextKey = (i + 1 < timeLine.keys.Count) ? timeLine.keys[i + 1] : null;
+                var nextInfo = nextKey != null ? (SpriteInfo)nextKey.info : null;
+
+                float startTime = key.time_s;
+                float endTime = nextKey != null ? nextKey.time_s : animation.length;
+
+                float startValue = GetIndexOrAdd(ref sprites, Folders[info.folder][info.file]);
+
+                float endValue = nextInfo != null
+                    ? GetIndexOrAdd(ref sprites, Folders[nextInfo.folder][nextInfo.file])
+                    : startValue;
+
+                allCurves.Add(CreateCurve(CurveType.instant, startTime, endTime, startValue, endValue));
             }
 
-            var lastIndex = animation.looping ? 0 : timeLine.keys.Count - 1;
-            var lastInfo = (SpriteInfo)timeLine.keys[lastIndex].info;
-
-            curve.AddKey(new Keyframe(TweakTime(animation.length), GetIndexOrAdd(ref sprites, Folders[lastInfo.folder][lastInfo.file]), inf, inf));
+            CurveBuilder.ConcatenateCurvesInto(curve, allCurves.ToArray());
         }
 
         void SetSpriteSwapKeys(Transform child, TimeLine timeLine, AnimationClip clip, Animation animation)
@@ -895,15 +918,6 @@ namespace Spriter2UnityDX.Animations
                 var sprite = Folders[info.folder][info.file];
 
                 keyframes.Add(new ObjectReferenceKeyframe { time = TweakTime(key.time_s), value = sprite });
-            }
-
-            // If there isn't a keyframe already on the last frame AND there isn't a keyframe on the first
-            // frame then add the appropriate keyframe to the last frame.
-            if (keyframes.Count > 0 && keyframes[keyframes.Count - 1].time != animation.length && keyframes[0].time != 0f)
-            {
-                var lastIndex = animation.looping ? 0 : timeLine.keys.Count - 1;
-                var lastInfo = (SpriteInfo)timeLine.keys[lastIndex].info;
-                keyframes.Add(new ObjectReferenceKeyframe { time = TweakTime(animation.length), value = Folders[lastInfo.folder][lastInfo.file] });
             }
 
             var rendererBinding = new EditorCurveBinding { path = GetPathToChild(child), propertyName = "m_Sprite", type = typeof(SpriteRenderer) };
