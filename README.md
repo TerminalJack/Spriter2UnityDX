@@ -361,8 +361,6 @@ On the flip side, contracting an animation in Unity risks having the editor drop
 
 During an import, having a Spriter project open in the Spriter application can (infrequently) cause the import to fail.  You will get an error regarding file access.  You may need to close the Spriter application in this case.
 
-There may be issues with key timing during parent and/or pivot changes.  This may not always be noticeable during normal playback because it happens for just one frame.  (Spriter projects have a framerate of **1000 frames per second!**)  Slowly scrubbing through the frames at the point of a parent/pivot change may reveal that the keys aren't properly synchronized.  For a single frame the affected sprite(s) will have an incorrect position, rotation and/or scale.  This can usually be corrected in the Unity `Animation` window by moving the master keyframe (the topmost key in the dopesheet) a single frame to the **right** and then back to the left.
-
 ## The `Resize Spriter Project` Utility
 
 Many commercial Spriter projects include oversized image files--far larger than needed for typical game use. Simply resizing these images with third-party tools isn’t enough: the Spriter .scml file must also be updated to reflect the new dimensions.
