@@ -13,7 +13,7 @@ namespace Spriter2UnityDX
     /// (1,1)=top-right. Values outside [0..1] are allowed.
     /// Takes the child’s localScale into account.
     /// </summary>
-    [ExecuteAlways, DefaultExecutionOrder(500)]
+    [ExecuteAlways]
     public class DynamicPivot2D : MonoBehaviour
     {
         [Tooltip("Pivot in normalized coords, (0,0)=bottom-left, (1,1)=top-right. Values outside [0..1] allowed.")]
@@ -37,11 +37,8 @@ namespace Spriter2UnityDX
 #endif
 
         void OnDidApplyAnimationProperties() => ApplyPivot();
-
-        void LateUpdate()
-        {
-            ApplyPivot();
-        }
+        void Update() { if (!Application.isPlaying) ApplyPivot(); }
+        void LateUpdate() { if (Application.isPlaying) ApplyPivot(); }
 
         void GatherReferences()
         {

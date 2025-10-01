@@ -783,6 +783,8 @@ namespace Spriter2UnityDX.Entity
             tlk.time_s += tlk.time_s > 0f ? -keyTimeAdjust_s : keyTimeAdjust_s;
             var newTime_s = tlk.time_s;
 
+            tlk.curve_type = CurveType.instant; // Override curve type to instant for this short span.
+
             var mainlineKey = animation.mainlineKeys.FirstOrDefault(k => k.time_s == newTime_s);
 
             if (mainlineKey == null)

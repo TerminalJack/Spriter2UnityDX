@@ -27,7 +27,8 @@ namespace Spriter2UnityDX
 
         private void Start() => SelectSprite();
         private void OnDidApplyAnimationProperties() => SelectSprite();
-        private void LateUpdate() => SelectSprite();
+        private void Update() { if (!Application.isPlaying) SelectSprite(); }
+        private void LateUpdate() { if (Application.isPlaying) SelectSprite(); }
 
         private void Awake()
         {
