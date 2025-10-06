@@ -270,6 +270,8 @@ public class ResizeSpriterProject : EditorWindow
 
         string ScaleDoubleValue(string valueStr) => (float.Parse(valueStr) * NewScale).ToString("0.######");
 
+        string ScaleIntValue(string valueStr) => Mathf.RoundToInt(float.Parse(valueStr) * NewScale).ToString();
+
         var replacementsByElement = new Dictionary<string, Dictionary<string, Func<string, string, string>>>
         {
             ["file"] = new Dictionary<string, Func<string, string, string>>
@@ -291,6 +293,10 @@ public class ResizeSpriterProject : EditorWindow
             {
                 ["x"] = (oldValue, file) => ScaleDoubleValue(oldValue),
                 ["y"] = (oldValue, file) => ScaleDoubleValue(oldValue)
+            },
+            ["gline"] = new Dictionary<string, Func<string, string, string>>
+            {
+                ["pos"] = (oldValue, file) => ScaleIntValue(oldValue)
             }
         };
 
