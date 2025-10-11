@@ -106,6 +106,10 @@ namespace Spriter2UnityDX.Entity
             ProcessSprites(entity); // Populates objectInfo collection.
 
             if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, processing action points";
+            ProcessActionPoints(entity); // Adds to objectInfo collection.
+
+            if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, processing unsupported types";
             ProcessUnsupportTypes(entity); // Warns of unsupported types.  Puts them in objectInfo collection.
 
@@ -509,6 +513,27 @@ namespace Spriter2UnityDX.Entity
             }
         }
 
+        private void ProcessActionPoints(Entity entity)
+        {
+
+            // Populate the objectInfo collection...
+            var allActionPointNames =
+                (from anim in entity.animations
+                 from tl in anim.timelines
+                 where tl.objectType == ObjectType.point
+                 select tl.name)
+                .Distinct()
+                .ToList();
+
+            Log($"Entity '{entity.name}' has the following action points:");
+
+            foreach (var actionPointName in allActionPointNames)
+            {
+                Log($"    '{actionPointName}'");
+                objectInfo.Add(actionPointName, new SpriterObjectInfo(actionPointName, ObjectType.point));
+            }
+        }
+
         private void ProcessUnsupportTypes(Entity entity)
         {
 
@@ -516,7 +541,7 @@ namespace Spriter2UnityDX.Entity
             var allUnsupportedTypeNames =
                 (from anim in entity.animations
                  from tl in anim.timelines
-                 where tl.objectType != ObjectType.sprite && tl.objectType != ObjectType.bone
+                 where tl.objectType != ObjectType.sprite && tl.objectType != ObjectType.bone && tl.objectType != ObjectType.point
                  select new { tl.name, tl.objectType })
                 .Distinct()
                 .ToList();

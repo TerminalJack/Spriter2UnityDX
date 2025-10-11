@@ -32,13 +32,14 @@ namespace Spriter2UnityDX.Animations
         private IDictionary<string, AnimationClip> OriginalClips = new Dictionary<string, AnimationClip>();
         private IDictionary<string, SpatialInfo> DefaultBones;
         private IDictionary<string, SpriteInfo> DefaultSprites;
+        private IDictionary<string, SpatialInfo> DefaultActionPoints;
         private AnimatorController Controller;
         private bool ModdedController = false;
         private SpriterEntityInfo entityInfo;
 
         public AnimationBuilder(ScmlProcessingInfo info, IDictionary<int, IDictionary<int, Sprite>> folders,
                                  IDictionary<string, Transform> transforms, IDictionary<string, SpatialInfo> defaultBones,
-                                 IDictionary<string, SpriteInfo> defaultSprites,
+                                 IDictionary<string, SpriteInfo> defaultSprites, IDictionary<string, SpatialInfo> defaultActionPoints,
                                  string prefabPath, AnimatorController controller,
                                  SpriterEntityInfo _entityInfo)
         {
@@ -48,6 +49,7 @@ namespace Spriter2UnityDX.Animations
             PrefabPath = prefabPath;
             DefaultBones = defaultBones;
             DefaultSprites = defaultSprites;
+            DefaultActionPoints = defaultActionPoints;
             entityInfo = _entityInfo;
 
             Root = Transforms["rootTransform"];
@@ -127,22 +129,41 @@ namespace Spriter2UnityDX.Animations
                     }
                 }
 
-                foreach (var sref in key.objectRefs)
+                foreach (var objRef in key.objectRefs)
                 {
-                    var timeLine = timeLines[sref.timeline];
-                    Transform sprite;
+                    var timeLine = timeLines[objRef.timeline];
 
-                    if (pendingTransforms.TryGetValue(timeLine.name, out sprite))
+                    if (timeLine.objectType == ObjectType.sprite)
                     {
-                        if (buildCtx.IsCanceled) { yield break; }
-                        yield return $"{buildCtx.MessagePrefix}, sprite: '{timeLine.name}', creating animation curves";
+                        Transform spriteTransform;
 
-                        var defaultZ = sref.z_index;
-                        List<TimeLineKey> parentTimeline;
-                        parentTimelines.TryGetValue(sref.parent, out parentTimeline);
-                        SetCurves(sprite, DefaultSprites[timeLine.name], timeLine, clip, animation, ref defaultZ);
-                        SetAdditionalCurves(sprite, animation.mainlineKeys, timeLine, clip, defaultZ);
-                        pendingTransforms.Remove(timeLine.name);
+                        if (pendingTransforms.TryGetValue(timeLine.name, out spriteTransform))
+                        {
+                            if (buildCtx.IsCanceled) { yield break; }
+                            yield return $"{buildCtx.MessagePrefix}, sprite: '{timeLine.name}', creating animation curves";
+
+                            var defaultZ = objRef.z_index;
+                            List<TimeLineKey> parentTimeline;
+                            parentTimelines.TryGetValue(objRef.parent, out parentTimeline);
+                            SetCurves(spriteTransform, DefaultSprites[timeLine.name], timeLine, clip, animation, ref defaultZ);
+                            SetAdditionalCurves(spriteTransform, animation.mainlineKeys, timeLine, clip, defaultZ);
+                            pendingTransforms.Remove(timeLine.name);
+                        }
+                    }
+                    else if (timeLine.objectType == ObjectType.point)
+                    {
+                        Transform actionPointTransform;
+
+                        if (pendingTransforms.TryGetValue(timeLine.name, out actionPointTransform))
+                        {
+                            if (buildCtx.IsCanceled) { yield break; }
+                            yield return $"{buildCtx.MessagePrefix}, action point: '{timeLine.name}', creating animation curves";
+
+                            List<TimeLineKey> parentTimeline;
+                            parentTimelines.TryGetValue(objRef.parent, out parentTimeline);
+                            SetCurves(actionPointTransform, DefaultActionPoints[timeLine.name], timeLine, clip, animation);
+                            pendingTransforms.Remove(timeLine.name);
+                        }
                     }
                 }
 

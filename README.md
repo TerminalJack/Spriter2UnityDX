@@ -98,17 +98,17 @@ The importer currently supports the following Spriter features:
 * **Non-default / dynamic pivots.**  Spriter allows a sprite's pivot to change at any time of an animation.  The importer fully supports this via a `dynamic pivot` component.
 * **Sort order or z-index.**  Sprites can change their sort order frame-by-frame.  This is fully supported via the `Sprite Renderer` `Order in layer` property.
 * **Character maps.**  Character maps are a powerful feature that allows you to easily customize the appearance of imported Spriter entities.  This is basically a re-skinning feature.
+* **Action points.**  Spriter action points will be imported as transforms.  They can be moved, rotated, and reparented.  They are useful for specifying "spawn points" (the location and rotation) of game objects, such as projectiles.
 
 ## Unsupported Spriter Features.
 
 The following Spriter features are not supported at this time:
 
 * Variables
-* Triggers
 * Tags
-* Sounds
+* Triggers
 * Collision rectangles
-* Action points
+* Sounds
 * SCON files (an alternative to SCML files)
 * Sub-entities
 * Texture Packer atlases

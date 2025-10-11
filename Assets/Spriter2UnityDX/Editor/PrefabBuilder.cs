@@ -172,9 +172,12 @@ namespace Spriter2UnityDX.Prefabs
 
             var transforms = new Dictionary<string, Transform>(); //All of the bones and sprites, identified by TimeLine.name, because those are truly unique
             transforms["rootTransform"] = instance.transform; //The root GameObject needs to be part of this hierarchy as well
-            var defaultBones = new Dictionary<string, SpatialInfo>(); //These are basically the object states on the first frame of the first animation
-            var defaultSprites = new Dictionary<string, SpriteInfo>(); //They are used as control values in determining whether something has changed
-            var animBuilder = new AnimationBuilder(ProcessingInfo, folders, transforms, defaultBones, defaultSprites, prefabPath, controller, entityInfo);
+
+            var defaultBones = new Dictionary<string, SpatialInfo>();  // These are basically the object states on the first frame of the first animation
+            var defaultSprites = new Dictionary<string, SpriteInfo>(); // They are used as control values in determining whether something has changed
+            var defaultActionPoints= new Dictionary<string, SpatialInfo>();
+
+            var animBuilder = new AnimationBuilder(ProcessingInfo, folders, transforms, defaultBones, defaultSprites, defaultActionPoints, prefabPath, controller, entityInfo);
             var firstAnim = true; //The prefab's graphic will be determined by the first frame of the first animation
 
             foreach (var animation in entity.animations)
@@ -204,6 +207,11 @@ namespace Spriter2UnityDX.Prefabs
                     yield return $"{buildCtx.MessagePrefix}, mainline key time: {key.time_s}, processing sprites";
 
                     ProcessSprites(parents, transforms, timeLines, key, defaultBones, defaultSprites, entityInfo, folders, firstAnim);
+
+                    if (buildCtx.IsCanceled) { yield break; }
+                    yield return $"{buildCtx.MessagePrefix}, mainline key time: {key.time_s}, processing action points";
+
+                    ProcessActionPoints(parents, transforms, timeLines, key, defaultActionPoints, entityInfo);
 
                     firstAnim = false;
                 }
@@ -595,6 +603,55 @@ namespace Spriter2UnityDX.Prefabs
             }
         }
 
+        private void ProcessActionPoints(Dictionary<int, string> parents, Dictionary<string, Transform> transforms,
+            Dictionary<int, TimeLine> timeLines, MainLineKey key, Dictionary<string, SpatialInfo> defaultActionPoints,
+            SpriterEntityInfo entityInfo)
+        {
+            foreach (var oref in key.objectRefs)
+            {
+                var timeLine = timeLines[oref.timeline];
+
+                SpriterEntityInfo.SpriterObjectInfo spriterObjectInfo;
+                entityInfo.objectInfo.TryGetValue(timeLine.name, out spriterObjectInfo);
+
+                if (spriterObjectInfo == null || spriterObjectInfo.type != ObjectType.point)
+                {   // Don't log a warning if this was one of the unsupported Spriter object types.
+                    if (spriterObjectInfo == null)
+                    {
+                        Debug.LogWarning($"Spriter2UnityDX: ProcessActionPoints() was unable to find object info for action point '{timeLine.name}'.");
+                    }
+
+                    continue;
+                }
+
+                if (transforms.ContainsKey(timeLine.name))
+                {
+                    continue;
+                }
+
+                var parentName = parents[oref.parent];
+                var parentTransform = transforms[parentName];
+
+                ProcessVirtualParent(parentName, ref parentTransform, spriterObjectInfo);
+
+                // 'child' is the name without a suffix, so will not be the virtual parent, if any.
+                var child = parentTransform.Find(timeLine.name);
+                if (child == null)
+                {
+                    child = new GameObject(timeLine.name).transform;
+                }
+
+                child.SetParent(parentTransform);
+                transforms[timeLine.name] = child; // Note that virtual parents and renderers w/ a pivot parent aren't added to this.
+
+                var pointInfo = defaultActionPoints[timeLine.name] = timeLine.keys[0].info;
+
+                child.localPosition = new Vector3(pointInfo.x, pointInfo.y, 0f);
+                child.localEulerAngles = new Vector3(0f, 0f, pointInfo.angle);
+                child.localScale = new Vector3(pointInfo.scale_x, pointInfo.scale_y, 1f);
+            }
+        }
+
         private void ProcessVirtualParent(string parentName, ref Transform parentTransform,
             SpriterEntityInfo.SpriterInfoBase virtualParentInfo)
         {
@@ -621,13 +678,22 @@ namespace Spriter2UnityDX.Prefabs
             //     └── Bone
             //
             // The bone transform will have the name of the bone from the Spriter file.  The virtual
-            // parent, if any, will be named boneName + " virtual parent";
+            // parent, if any, will be named boneName + " virtual parent".
+            //
+            // Action points can have virtual parents but can't have sprite renderers or pivots so their
+            // hierarchy will look like this:
+            //
+            //     Virtual Parent (optional)
+            //     └── Action Point
+            //
+            // The action point transform will have the name of the action point from the Spriter file.  The virtual
+            // parent, if any, will be named pointName + " virtual parent".
 
             if (virtualParentInfo.hasVirtualParent)
             {   // Find or create a transform for the virtual parent.
 
                 if (virtualParentInfo.parentBoneNames[0] != parentName)
-                {   // The bone/sprite's first parent isn't the bone that would actually be its parent when the
+                {   // The bone/sprite/point's first parent isn't the bone that would actually be its parent when the
                     // character is in the bind/default pose.  (The "bind pose" refers to the character’s
                     // default bone and sprite positions, etc., which are defined by the first frame of the
                     // entity's first animation.)  Make it the first so that it shows up at index zero of
