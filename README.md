@@ -307,6 +307,16 @@ By selecting a bind pose that matches your typical animation scenarios, you maxi
 
 ## Tips and Tricks.
 
+**Character Maps**
+
+Leveraging Spriter's powerful character map feature is a great way to make imports faster and builds smaller.
+
+If you have several entities in your Spriter project and the only difference between them is their 'skin' then consider using character maps instead of having separate entities.  If you can reduce ten entities down to just one then your imports will be ten times faster.  Also, your builds will be smaller due to the fact that you won't be unnecessarily duplicating things such as animator controllers and animation clips.
+
+If you are using 3rd-party Spriter projects then check to see if they have already been configured with character maps.  Many times the creator will define all of the character maps in one of the entities (typically the top-most) and treat it as a kind of template for the other entities in the Spriter project.  If that's the case, then (after making a copy of the Spriter project!) simply delete all of the entities except the one that the others are based off of.
+
+Once you have a Spriter project that is configured with character maps use that particular Spriter project in your Unity project(s) and create prefabs (or prefab variants) and make the appropriate character mappings in the Unity inspector.
+
 **Sprite Atlases**
 
 The single biggest performance boost you can gain with the prefabs generated from Spriter is to use a `Sprite Atlas` with them.  If you create an empty scene, throw a prefab into the scene view, click run, and click the `Stats` button, you will notice that the number of batches (basically draw calls) is more-or-less the same as the number of visible sprites that the Spriter entity is composed of.  This can be dozens!
