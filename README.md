@@ -8,10 +8,10 @@ past tense: **reanimated**; past participle: **reanimated** <br>
 >   * give fresh vigor or impetus to. <br>
 
 ## Description
-Spriter2UnityDX helps you integrate Spriter projects into Unity.  It imports Spriter .scml files and the images that it references and produces the following as output:
+Spriter2UnityDX helps you integrate Spriter projects into Unity.  It imports Spriter `.scml` files and the images that it references and produces the following as output:
 
 * **Prefabs** <br>
-One prefab will be generated for each of the entities in the .scml file.  The prefab's preview image will be generated based on the first frame of the entity's first animation.
+One prefab will be generated for each of the entities in the `.scml` file.  The prefab's preview image will be generated based on the first frame of the entity's first animation.
 * **Animator controllers** <br>
 One animator controller will be generated for each of the entities.  An animation state will be created for each of the entity's animations.
 * **Animation clips** <br>
@@ -39,19 +39,19 @@ You have two simple options for installation: grab the UnityPackage from Release
 
 ## Quick Start!
 
-Once Spriter2UnityDX is installed you can import a Spriter project simply by dropping the folder that contains the .scml file--**and** all of the image files needed by the .scml file--into the Unity `Project` window.
+Once Spriter2UnityDX is installed you can import a Spriter project simply by dropping the folder that contains the `.scml` file--**and** all of the image files needed by the `.scml` file--into the Unity `Project` window.
 
-Dropping a Spriter project folder into Unity's `Project` window will kick-off Unity's importers (for the image files) and, once Unity is done, it will hand control to Spriter2UnityDX to import the .scml file.  A window with a few import options will pop-up at this time.  For now, simply leave the import options as-is and click the `Import` button.
+Dropping a Spriter project folder into Unity's `Project` window will kick-off Unity's importers (for the image files) and, once Unity is done, it will hand control to Spriter2UnityDX to import the `.scml` file.  A window with a few import options will pop-up at this time.  For now, simply leave the import options as-is and click the `Import` button.
 
-This will import all of the contents from all of the .scml files that are found in the folder and its subfolders.  The importer will ignore Spriter's `autosave` files so don't worry about them being present during import.
+This will import all of the contents from all of the `.scml` files that are found in the folder and its subfolders.  The importer will ignore Spriter's `.autosave.scml` files so don't worry about them being present during import.
 
-The importer will write its generated output files (the prefabs, etc.) into the same folder as the corresponding .scml file.  Depending on import settings, animation clips can be embedded in the prefab or written into a subfolder.
+The importer will write its generated output files (the prefabs, etc.) into the same folder as the corresponding `.scml` file.  Depending on import settings, animation clips can be embedded in the prefab or written into a subfolder.
 
 The `Spriter Import Status` window will keep you informed about the import progress.  The information in this window isn't particularly important so don't try to keep up with it as it scrolls by.  It basically serves to let you know that the importer is, in fact, doing its job.  Any important information will be logged to the console.
 
 You may notice that the imported prefabs pop-up in the scene view during processing.  This is normal and they will be removed once they are imported.  Sometimes the sprites will be all jumbled-up but that's normal as well.
 
-Once the import is complete, check the folder for newly created prefab files.  There will be one for each entity in the .scml file(s).  If you click on one of these prefabs you will see that its preview image is generated from the first frame of the entity's first animation.
+Once the import is complete, check the folder for newly created prefab files.  There will be one for each entity in the `.scml` file(s).  If you click on one of these prefabs you will see that its preview image is generated from the first frame of the entity's first animation.
 
 Drop one of these prefabs into the `Scene` view.  Open Unity's `Animation` window.  Select the game object (the instantiated prefab) in the `Scene` view and select an animation clip in the `Animation` window.  Hit the play animation button (▶️) and the animation will play.
 
@@ -65,9 +65,9 @@ Leave the properties as-is and run the scene.  (Leave the `Cross Fade` property 
 
 Assuming that all has gone well, you are ready to use the generated prefabs, animation clips, etc. in your next masterpiece.
 
-If you need to reimport a .scml file at any time, right-click the file and click `Reimport`.  This will attempt to integrate any changes that have been made to the the .scml file into the existing prefabs and animator controllers.  The reimport will overwrite the animation clips but it will attempt to preserve any animation events that you have added.
+If you need to reimport a `.scml` file at any time, right-click the file and click `Reimport`.  This will attempt to integrate any changes that have been made to the the `.scml` file into the existing prefabs and animator controllers.  The reimport will overwrite the animation clips but it will attempt to preserve any animation events that you have added.
 
-If there have been drastic changes to the .scml file since the prefab was last generated then reimporting over an existing prefab may seemingly corrupt the prefab.  At this point, the importer isn't particularly robust in this regard.  See the `Tips and Tricks` section on how to avoid (or at least minimize) putting any customizations in the hierarchy of the prefab.  If you do this then you can simply delete the prefab before reimporting to ensure that there are no issues with reimporting on top of a preexisting prefab.
+If there have been drastic changes to the `.scml` file since the prefab was last generated then reimporting over an existing prefab may seemingly corrupt the prefab.  At this point, the importer isn't particularly robust in this regard.  See the `Tips and Tricks` section on how to avoid (or at least minimize) putting any customizations in the hierarchy of the prefab.  If you do this then you can simply delete the prefab before reimporting to ensure that there are no issues with reimporting on top of a preexisting prefab.
 
 Finally, before you go and play with the newly generated prefabs, be wary when trying to use Unity's transition blending feature.  When you create a transition from one animator state to another, Unity will, by default, blend the two animations.
 
@@ -97,7 +97,7 @@ The importer currently supports the following Spriter features:
 * **Dynamic reparenting.**  Spriter allows the artist to reassign a bone/sprite's parent at any time of an animation.  The importer will emulate this functionality by creating a `virtual parent` for the bones and sprites that have more than one parent (across all of the entity's animations.)  This is also known as a `parent constraint` or `child of constraint` in animation applications.
 * **Non-default / dynamic pivots.**  Spriter allows a sprite's pivot to change at any time of an animation.  The importer fully supports this via a `dynamic pivot` component.
 * **Sort order or z-index.**  Sprites can change their sort order frame-by-frame.  This is fully supported via the `Sprite Renderer` `Order in layer` property.
-* **Character maps.**  Character maps are a powerful feature that allows you to easily customize the appearance of imported Spriter entities.  This is basically a re-skinning feature.
+* **Character maps.**  Character maps are a powerful feature that allow you to easily customize the appearance of imported Spriter entities.  This is basically a re-skinning feature.
 * **Action points.**  Spriter action points will be imported as transforms.  They can be moved, rotated, and reparented.  They are useful for specifying "spawn points" (the location and rotation) of game objects, such as projectiles.
 
 ## Unsupported Spriter Features.
@@ -121,7 +121,7 @@ The following Spriter features are not supported at this time:
 
 ## Import Options.
 
-The `Spriter Import Options` window will appear whenever you either, a) drop a Spriter project into Unity's `Project` window, or, b) right-click an .scml file and select `Reimport`.
+The `Spriter Import Options` window will appear whenever you either, a) drop a Spriter project into Unity's `Project` window, or, b) right-click an `.scml` file and select `Reimport`.
 
 You'll be given the option to set the options shown in the figure below.
 
@@ -135,7 +135,7 @@ The `Direct Sprite Swapping` checkbox should be disabled if you intend to a) use
 
 If your Spriter project has any entities that define Character Maps then enabling `Create Character Maps` will add a `Character Map Controller` component to the root of those prefabs.
 
-The `Animation Import Style` has the two options: `Nested In Prefab` and `Separate Folder`.  If you select `Separate Folder`, a prefab's animation clips will be placed in a subfolder named "{*prefabName*}_Anims".
+The `Animation Import Style` dropdown has the two options: `Nested In Prefab` and `Separate Folder`.  If you select `Separate Folder`, a prefab's animation clips will be placed in a subfolder named "{*prefabName*}_Anims".
 
 ## Runtime Components.
 
@@ -315,7 +315,7 @@ If you have several entities in your Spriter project and the only difference bet
 
 If you are using 3rd-party Spriter projects then check to see if they have already been configured with character maps.  Many times the creator will define all of the character maps in one of the entities (typically the top-most) and treat it as a kind of template for the other entities in the Spriter project.  If that's the case, then (after making a copy of the Spriter project!) simply delete all of the entities except the one that the others are based off of.
 
-Once you have a Spriter project that is configured with character maps use that particular Spriter project in your Unity project(s) and create prefabs (or prefab variants) and make the appropriate character mappings in the Unity inspector.
+Once you have a Spriter project that is configured with character maps then use that particular Spriter project in your Unity project(s) and create prefabs (or prefab variants) based on the imported prefab(s) and make the appropriate character mappings in the Unity inspector.
 
 **Sprite Atlases**
 
@@ -353,15 +353,15 @@ One approach is to make the prefab a child of another game object.  The root gam
 
 If you find that you need to add something such as a collider or a sprite renderer to one of the model's transforms then it is advised that you, instead, create an empty transform as a child of the root, add a `Virtual Parent` component to it, and make the target transform (the transform you want the collider, sprite renderer, etc. attached to) the sole `Possible Parent` of the virtual parent.  Any components that you place on the virtual parent, or its children, will essentially be a child of the target's transform and move, rotate and scale based on it.
 
->If you have added custom sprite renderers then be sure to 1) add these to the sprite atlas, and 2) move the `Sorting Group` component from the model's prefab up into the root game object.
+>If you have added custom sprite renderers then be sure to 1) add any new sprites to the sprite atlas, and 2) move the `Sorting Group` component from the model's prefab up into the root game object.
 
 ## Caveats.
 
 While the importer strives to convert your Spriter projects into Unity animations, it doesn't necessarily focus on making those animations easy to edit in Unity.  You will likely find that it is better to continue using Spriter for animation creation and editing.
 
-If you need to expand or contract an animation, prefer to do so in Spriter rather than in Unity.  For parent and pivot changes, Spriter actually uses two keys that have the exact same time.
+If you need to expand or contract an animation, prefer to do so in Spriter rather than in Unity.  For parent and pivot changes, Spriter actually uses two keys (for several properties) that have the exact same time.
 
-Having two keys at the same frame time isn't possible in Unity so, to handle these cases, the importer will use two different keys that have--at import time--just half a millisecond of difference in their times.  The problem is that expanding an animation in Unity also means expanding the distance between these keys--which can cause problems.
+Having two keys for the same property at the same frame time isn't possible in Unity so, to handle these cases, the importer will use two different keys that have--at import time--just half a millisecond of difference in their times.  The problem is that expanding an animation in Unity also means expanding the distance between these keys--which can cause problems.
 
 On the flip side, contracting an animation in Unity risks having the editor drop keys that are too close to each other.  This is also one of the reasons why Spriter animation clips must be imported with a sample rate of 1000 frames per second.
 
@@ -373,26 +373,26 @@ During an import, having a Spriter project open in the Spriter application can (
 
 ## The `Resize Spriter Project` Utility
 
-Many commercial Spriter projects include oversized image files--far larger than needed for typical game use. Simply resizing these images with third-party tools isn’t enough: the Spriter .scml file must also be updated to reflect the new dimensions.
+Many commercial Spriter projects include oversized image files--far larger than needed for typical game use. Simply resizing these images with third-party tools isn’t enough: the Spriter `.scml` file must also be updated to reflect the new dimensions.
 
-This utility scales an entire Spriter project--from 5% to 95% of its original size--by generating resized images and updating the .scml file accordingly.
+This utility scales an entire Spriter project--from 5% to 95% of its original size--by generating resized images and updating the `.scml` file accordingly.
 
->If you're not satisfied with the image quality produced by the utility, you can replace the resized images using your preferred image editor once you have generated an updated .scml file with the utility.
+>If you're not satisfied with the image quality produced by the utility, you can replace the resized images using your preferred image editor once you have generated an updated `.scml` file with the utility.
 >
->Because the .scml file now reflects the new dimensions, just ensure you apply the same scaling factor used during the initial resize so that the images are of similar size.  The images that your image editor produces don't need to have the *exact* same dimensions.  They should work fine so long as they are within a pixel or two.
+>Because the `.scml` file now reflects the new dimensions, just ensure you apply the same scaling factor used during the initial resize so that the images are of similar size.  The images that your image editor produces don't need to have the *exact* same dimensions.  They should work fine so long as they are within a pixel or two.
 
 You can launch the utility in three ways:
-- Right-click a .scml file in Unity’s Project Browser and select **Resize Spriter Project...**
-- With a .scml file selected, go to **Assets** | **Resize Spriter Project...**
+- Right-click a `.scml` file in Unity’s Project Browser and select **Resize Spriter Project...**
+- With a `.scml` file selected, go to **Assets** | **Resize Spriter Project...**
 - Navigate to **Window** | **Resize Spriter Project...**
 
 The first two options will automatically pre-fill the `Input File` field in the utility window.
 
 ![Resize Spriter Project Window](Docs/Images/Resize%20Spriter%20Project%20Window.png)
 
-If the `Input File` field isn't already filled-out, enter the path to the .scml file that is being resized.  You can manually enter the file path or use the `...` button to select it using your OS file browser.
+If the `Input File` field isn't already filled-out, enter the path to the `.scml` file that is being resized.  You can manually enter the file path or use the `…` button to select it using your OS file browser.
 
-The `Output File and Folder` field allows you to select both the output file name and the folder to save it--and all of the resized images--to.  Use the `...` button to use your OS file browser.  (This is the `Save As` dialog box.)  At this point, you are **strongly advised** to use the file browser to create a **new** folder and select that folder as the output folder.  Type in a name for the new .scml file and click `Save`.
+The `Output File and Folder` field allows you to select both the output file name and the folder to save it--and all of the resized images--to.  Use the `…` button to use your OS file browser.  (This is the `Save As` dialog box.)  At this point, you are **strongly advised** to use the file browser to create a **new** folder and select that folder as the output folder.  Type in a name for the new `.scml` file and click `Save`.
 
 At this time, double-check the `Output File and Folder` field.  Several dozen image files will be written to this folder so make sure it is correct.
 
@@ -408,7 +408,7 @@ Once both the `Input File` field and the `Output File and Folder` field are fill
 
 Click `Create` to generate the output.
 
-Once the output files are generated, Unity will kick-off an import.  This includes the image files and the newly created .scml file.  Because of this, the Spriter2UnityDX import window will pop-up.  You can import the new Spriter project at this time or close the import window and do it at some other point.
+Once the output files are generated, Unity will kick-off an import.  This includes the image files and the newly created `.scml` file.  Because of this, the Spriter2UnityDX import window will pop-up.  You can import the new Spriter project at this time or close the import window and do it at some other point.
 
 ## License.
 
@@ -416,6 +416,8 @@ This fork has the same license as the original project.  The text of which is as
 
 > This project is open source. Anyone can use any part of this code however they wish. Feel free to use this code in your own projects, or expand on this code. If you have any improvements to the code itself, please visit https://github.com/Dharengo/Spriter2UnityDX and share your suggestions by creating a fork
 -Dengar/Dharengo
+
+However, please note that the original Spriter2UnityDX project (Dharengo's repo) is no longer being maintained so please submit any issues, suggestions, fixes, new features, etc. to my repo at: https://github.com/TerminalJack/Spriter2UnityDX
 
 ## Credits.
 
