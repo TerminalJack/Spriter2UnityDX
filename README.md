@@ -1,14 +1,9 @@
-# Spriter2UnityDX Reanimated 😎
+# Spriter to Unity Importer (STUI)
 
->re·an·i·mate <br>
-/rēˈanəˌmāt/ <br>
-verb <br>
-past tense: **reanimated**; past participle: **reanimated** <br>
->   * restore to life or consciousness; revive. <br>
->   * give fresh vigor or impetus to. <br>
+A powerful Unity asset for converting your Spriter projects into native Unity prefabs, animator controllers, and animation clips.
 
 ## Description
-Spriter2UnityDX helps you integrate Spriter projects into Unity.  It imports Spriter `.scml` files and the images that it references and produces the following as output:
+The ***Spriter to Unity Importer***, henceforth referred to as `Stui` (pronounced the same as `Stewie`), helps you integrate Spriter projects into Unity.  It imports Spriter `.scml` files and the images that it references and produces the following as output:
 
 * **Prefabs** <br>
 One prefab will be generated for each of the entities in the `.scml` file.  The prefab's preview image will be generated based on the first frame of the entity's first animation.
@@ -17,17 +12,19 @@ One animator controller will be generated for each of the entities.  An animatio
 * **Animation clips** <br>
 One animation clip will be generated for each of an entity's animations.  These are standard Unity animation clips that can be played/scrubbed in-editor using Unity's Animator window.  If the structure of the Spriter file permits it, you can use Unity animation features such as crossfade and transition blending.
 
-## Why This Fork?
+## The Origins of this Project
 
-This is a custom fork of the Spriter2UnityDX project.  The original project has been abandoned for many years.
+This project started out as a custom fork of the [Spriter2UnityDX](https://github.com/Dharengo/Spriter2UnityDX) project.  You will still find references to the original project (such as its name) in this project.  Much of the original code still remains but has been refactored in some way.
 
-This fork revives the project and adds a lot of new functionality.  It also fixes all of the issues known to affect the original project.
+The original project has been abandoned for many years.  Because of this, the custom fork was made into a standalone Github project and renamed to `Stui` to help distinguish between the two projects.
 
-Other than new features and bug fixes, the main focus of this fork is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  To be honest, the animations created by the original Spriter2UnityDX project practically _never_ matched those of the corresponding Spriter project.
+Stui revived the original Spriter2UnityDX project and added a lot of new functionality.  It has also fixed all of the issues known to affect the original project.
 
-The project aims to be lightweight and allocation-free.
+Other than new features and bug fixes, the main focus of Stui is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  To be honest, the animations created by the original Spriter2UnityDX project practically _never_ matched those of the corresponding Spriter project.
 
-## Where to Get Spriter2UnityDX and How to Install it
+Stui aims to be lightweight and allocation-free.  The generated native Unity animations require some 'adaptor' or 'glue-type' of components to faithfully match the Spriter animations but they should be very performant.
+
+## Where to Get Stui and How to Install it
 
 You have two simple options for installation: grab the UnityPackage from Releases, or install directly from source.
 
@@ -45,9 +42,9 @@ You have two simple options for installation: grab the UnityPackage from Release
 
 ## Quick Start!
 
-Once Spriter2UnityDX is installed you can import a Spriter project simply by dropping the folder that contains the `.scml` file--**and** all of the image files needed by the `.scml` file--into the Unity `Project` window.
+Once Stui is installed you can import a Spriter project simply by dropping the folder that contains the `.scml` file--**and** all of the image files needed by the `.scml` file--into the Unity `Project` window.
 
-Dropping a Spriter project folder into Unity's `Project` window will kick-off Unity's importers (for the image files) and, once Unity is done, it will hand control to Spriter2UnityDX to import the `.scml` file.  A window with a few import options will pop-up at this time.  For now, simply leave the import options as-is and click the `Import` button.
+Dropping a Spriter project folder into Unity's `Project` window will kick-off Unity's importers (for the image files) and, once Unity is done, it will hand control to Stui to import the `.scml` file.  A window with a few import options will pop-up at this time.  For now, simply leave the import options as-is and click the `Import` button.
 
 This will import all of the contents from all of the `.scml` files that are found in the folder and its subfolders.  The importer will ignore Spriter's `.autosave.scml` files so don't worry about them being present during import.
 
@@ -333,7 +330,7 @@ You can reduce the number of draw calls down to 1 per Spriter entity simply by c
 
 Many commercial Spriter projects come with images that are much bigger than you would normally use in-game.  You may need to use Spriter Pro's `Save as resized project` feature to reduce the size of the images so that you can fit them all in a single sprite atlas.
 
->If you need to resize a Spriter project and you don't have Spriter Pro, or, you just find it more convenient to work in the Unity editor then there is a `Resize Spriter Project` utility included with Spriter2UnityDX.  See the section on it for more details.
+>If you need to resize a Spriter project and you don't have Spriter Pro, or, you just find it more convenient to work in the Unity editor then there is a `Resize Spriter Project` utility included with Stui.  See the section on it for more details.
 
 **Mip Maps**
 
@@ -345,9 +342,9 @@ This can result in sprites that have jagged edges.  The simple solution to this 
 
 >You may not see these 'jagged edges' in Unity's scene view.  In the scene view, sprites will be displayed with a different renderer than what your game will use.  Use the game view when checking for your game's sprite render quality.
 
-Another option to fix this is to use Spriter Pro's `Save as resized project` feature.  (Or the `Resize Spriter Project` utility that comes with Spriter2UnityDX.)  This will allow you to generate images that are basically "pixel perfect" so that the images don't need to be stretched or compressed.
+Another option to fix this is to use Spriter Pro's `Save as resized project` feature.  (Or the `Resize Spriter Project` utility that comes with Stui.)  This will allow you to generate images that are basically "pixel perfect" so that the images don't need to be stretched or compressed.
 
->This is actually a bit more complicated than it is made out to be since this assumes that you are either a) supporting just a single resolution for your game, or b) will generate separate image sets (and atlases) for each of the resolutions you intend to support.  A good 'middle ground' is to use Spriter Pro's `Save as resized project` feature or Spriter2UnityDX's `Resize Spriter Project` utility, to generate pixel perfect images at your game's maximum supported resolution **and** enable mip maps.
+>This is actually a bit more complicated than it is made out to be since this assumes that you are either a) supporting just a single resolution for your game, or b) will generate separate image sets (and atlases) for each of the resolutions you intend to support.  A good 'middle ground' is to use Spriter Pro's `Save as resized project` feature or Stui's `Resize Spriter Project` utility, to generate pixel perfect images at your game's maximum supported resolution **and** enable mip maps.
 
 **A Strategy for Keeping Customizations out of Generated Prefabs**
 
@@ -414,11 +411,11 @@ Once both the `Input File` field and the `Output File and Folder` field are fill
 
 Click `Create` to generate the output.
 
-Once the output files are generated, Unity will kick-off an import.  This includes the image files and the newly created `.scml` file.  Because of this, the Spriter2UnityDX import window will pop-up.  You can import the new Spriter project at this time or close the import window and do it at some other point.
+Once the output files are generated, Unity will kick-off an import.  This includes the image files and the newly created `.scml` file.  Because of this, the Stui import window will pop-up.  You can import the new Spriter project at this time or close the import window and do it at some later time.
 
 ## License.
 
-This fork has the same license as the original project.  The text of which is as follows:
+At this time, this project has the same license as the original project.  The text of which is as follows:
 
 > This project is open source. Anyone can use any part of this code however they wish. Feel free to use this code in your own projects, or expand on this code. If you have any improvements to the code itself, please visit https://github.com/Dharengo/Spriter2UnityDX and share your suggestions by creating a fork
 -Dengar/Dharengo
