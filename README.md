@@ -19,7 +19,13 @@ One animation clip will be generated for each of an entity's animations.  These 
 
 ## Why This Fork?
 
-This is a custom fork of the Spriter2UnityDX project.  It adds a lot of new functionality.  The main focus of the fork is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  It aims to be lightweight and allocation-free.
+This is a custom fork of the Spriter2UnityDX project.  The original project has been abandoned for many years.
+
+This fork revives the project and adds a lot of new functionality.  It also fixes all of the issues known to affect the original project.
+
+Other than new features and bug fixes, the main focus of this fork is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  To be honest, the animations created by the original Spriter2UnityDX project practically _never_ matched those of the corresponding Spriter project.
+
+The project aims to be lightweight and allocation-free.
 
 ## Where to Get Spriter2UnityDX and How to Install it
 
