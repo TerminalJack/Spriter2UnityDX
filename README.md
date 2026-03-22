@@ -29,12 +29,12 @@ Stui aims to be lightweight and allocation-free.  The generated native Unity ani
 You have two simple options for installation: grab the UnityPackage from Releases, or install directly from source.
 
 1. **Install via Unity Package**<br>
-    1. Grab the latest Unity package from [here.](https://github.com/TerminalJack/Spriter2UnityDX/releases) Unlike the Github repo (which is a complete Unity project), the Unity package will have only the files you need for integration into your own Unity project.<br>
+    1. Grab the latest Unity package from [here.](https://github.com/TerminalJack/stui/releases) Unlike the Github repo (which is a complete Unity project), the Unity package will have only the files you need for integration into your own Unity project.<br>
     2. Drag-and-drop the package into your project's `Project` window.<br>
     3. In the import dialog, click `Import`.
 2. **Install from Source**<br>
     1. Clone or download the full repo:<br>
-    `git clone https://github.com/TerminalJack/Spriter2UnityDX.git`<br>
+    `git clone https://github.com/TerminalJack/stui.git`<br>
     2. In your OS file browser, locate the Spriter2UnityDX folder inside the repo.<br>
     3. Drag-and-drop that folder into your Unity `Project` window.
 
@@ -420,7 +420,7 @@ At this time, this project has the same license as the original project.  The te
 > This project is open source. Anyone can use any part of this code however they wish. Feel free to use this code in your own projects, or expand on this code. If you have any improvements to the code itself, please visit https://github.com/Dharengo/Spriter2UnityDX and share your suggestions by creating a fork
 -Dengar/Dharengo
 
-However, please note that the original Spriter2UnityDX project (Dharengo's repo) is no longer being maintained so please submit any issues, suggestions, fixes, new features, etc. to my repo at: https://github.com/TerminalJack/Spriter2UnityDX
+However, please note that the original Spriter2UnityDX project (Dharengo's repo) is no longer being maintained so please submit any issues, suggestions, fixes, new features, etc. to my repo at: https://github.com/TerminalJack/stui
 
 ## Credits.
 

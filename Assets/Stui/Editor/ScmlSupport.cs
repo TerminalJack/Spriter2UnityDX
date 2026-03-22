@@ -7,21 +7,20 @@
 using UnityEngine;
 using System;
 using System.Text;
-using System.Runtime.Serialization;
 using System.Xml.Serialization;
 using System.Collections.Generic;
-using System.IO;
 
-//All of these classes are containers for the data that is read from the .scml file
-//It is directly deserialized into these classes, although some individual values are
-//modified into a format that can be used by Unity
+// All of these classes are containers for the data that is read from the .scml file
+// It is directly deserialized into these classes, although some individual values are
+// modified into a format that can be used by Unity
 namespace Spriter2UnityDX.Importing
 {
     [XmlRoot("spriter_data")]
     public class ScmlObject
-    {   //Master class that holds all the other data
+    {   // Master class that holds all the other data
         [XmlElement("folder")] public List<Folder> folders = new List<Folder>(); // <folder> tags
         [XmlElement("entity")] public List<Entity> entities = new List<Entity>(); // <entity> tags
+        [XmlArray("tag_list"), XmlArrayItem("i")] public List<SpriterTag> tags = new List<SpriterTag>();
     }
 
     public class Folder : ScmlElement
@@ -55,8 +54,115 @@ namespace Spriter2UnityDX.Importing
             set { _name = EntityNameSanitizer.Sanitize(value); }
         }
 
+        [XmlElement("obj_info")] public List<SpriterObjectInfo> objectInfos = new List<SpriterObjectInfo>();
         [XmlElement("character_map")] public List<CharacterMap> characterMaps = new List<CharacterMap>(); // <character_map> tags
         [XmlElement("animation")] public List<Animation> animations = new List<Animation>(); // <animation> tags
+        [XmlArray("var_defs"), XmlArrayItem("i")] public List<SpriterVarDef> variables = new List<SpriterVarDef>();
+    }
+
+    public class SpriterObjectInfo : ScmlElement
+    {
+        [XmlAttribute] public string name { get; set; }
+        [XmlAttribute("type")] public ObjectType objectType;
+
+        [XmlAttribute("w")] public float width;
+        [XmlAttribute("h")] public float height;
+
+        [XmlAttribute("pivot_x")] public float pivot_x;
+        [XmlAttribute("pivot_y")] public float pivot_y;
+
+        [XmlArray("var_defs"), XmlArrayItem("i")] public List<SpriterVarDef> variables = new List<SpriterVarDef>();
+    }
+
+    public class SpriterMeta
+    {
+        [XmlElement("varline")] public List<SpriterVarline> varlines = new List<SpriterVarline>();
+        [XmlElement("tagline")] public SpriterTagline tagline;
+    }
+
+    public class SpriterVarDef : ScmlElement
+    {
+        [XmlAttribute] public string name { get; set; }
+        [XmlAttribute("type")] public SpriterVarType type;
+
+        [XmlAttribute("default")] public string defaultValue;
+
+        [XmlIgnore] public SpriterVarValue variableValue; // ! May not need.
+    }
+
+    public class SpriterVarline : ScmlElement
+    {
+        [XmlAttribute] public string name { get; set; } // ! Used?
+        [XmlAttribute("def")] public int Def;
+        [XmlElement("key")] public List<SpriterVarlineKey> keys = new List<SpriterVarlineKey>();
+    }
+
+    public class SpriterKey : ScmlElement
+    {
+        public SpriterKey() { time = 0; }
+
+        private float _time; // In seconds.
+
+        [XmlAttribute]
+        public float time
+        { //Dengar.NOTE: In Spriter, Time is measured in milliseconds
+            // ! Read in seconds.
+            // ! Set in milliseconds!
+            get { return _time; }
+            set { _time = value * 0.001f; } //Dengar.NOTE: In Unity, it is measured in seconds instead, so we need to translate that
+        }
+
+        // Use the following when getting (and especially setting) the time so that you know what units you're working in.
+        [XmlIgnore] public float time_s { get { return _time; } set { _time = value; }}
+
+        [XmlAttribute] public CurveType curve_type { get; set; } // enum : INSTANT,LINEAR,QUADRATIC,CUBIC //Dengar.NOTE (again, no caps)
+
+        [XmlAttribute] public float c1 { get; set; }
+        [XmlAttribute] public float c2 { get; set; }
+        [XmlAttribute] public float c3 { get; set; }
+        [XmlAttribute] public float c4 { get; set; }
+    }
+
+    public class SpriterVarlineKey : SpriterKey
+    {
+        [XmlAttribute("val")] public string value;
+        [XmlIgnore] public SpriterVarValue variableValue; // ! May not need.
+    }
+
+    public class SpriterVarValue // ! May not need.
+    {
+        public SpriterVarType type;
+        public string stringValue;
+        public float floatValue;
+        public int intValue;
+    }
+
+    public class SpriterTagline
+    {
+        [XmlElement("key")] public List<SpriterTaglineKey> keys = new List<SpriterTaglineKey>();
+    }
+
+    public class SpriterTaglineKey : SpriterKey
+    {
+        [XmlElement("tag")] public List<SpriterTag> tags = new List<SpriterTag>();
+    }
+
+    public class SpriterTag : ScmlElement
+    {
+        [XmlAttribute] public string name { get; set; }
+        [XmlAttribute("t")] public int tagId;
+    }
+
+    public enum SpriterVarType
+    {
+        [XmlEnum("string")]
+        String,
+
+        [XmlEnum("int")]
+        Int,
+
+        [XmlEnum("float")]
+        Float
     }
 
     public class CharacterMap : ScmlElement
@@ -104,12 +210,11 @@ namespace Spriter2UnityDX.Importing
         [XmlArray("mainline"), XmlArrayItem("key")]
         public List<MainLineKey> mainlineKeys = new List<MainLineKey>(); // <key> tags within a single <mainline> tag
         [XmlElement("timeline")] public List<TimeLine> timelines = new List<TimeLine>(); // <timeline> tags
+        [XmlElement("meta")] public SpriterMeta metadata;
     }
 
-    public class MainLineKey : ScmlElement
+    public class MainLineKey : SpriterKey
     {
-        public MainLineKey() { time = 0; }
-
         public override string ToString()
         {
             return $"{nameof(MainLineKey)}, id:{id}, time:{time}, curve_type:{curve_type}, " +
@@ -126,28 +231,8 @@ namespace Spriter2UnityDX.Importing
             return clone;
         }
 
-        private float _time; // In seconds.
-
-        [XmlAttribute]
-        public float time
-        { //Dengar.NOTE: In Spriter, Time is measured in milliseconds
-            // ! Read in seconds.
-            // ! Set in milliseconds!
-            get { return _time; }
-            set { _time = value * 0.001f; } //Dengar.NOTE: In Unity, it is measured in seconds instead, so we need to translate that
-        }
-
-        // Use the following when getting (and especially setting) the time so that you know what units you're working in.
-        public float time_s { get { return _time; } set { _time = value; }}
-
         [XmlElement("bone_ref")] public List<Ref> boneRefs = new List<Ref>(); // <bone_ref> tags
         [XmlElement("object_ref")] public List<Ref> objectRefs = new List<Ref>(); // <object_ref> tags
-
-        [XmlAttribute] public CurveType curve_type { get; set; } // enum : INSTANT,LINEAR,QUADRATIC,CUBIC //Dengar.NOTE (again, no caps)
-        [XmlAttribute] public float c1 { get; set; }
-        [XmlAttribute] public float c2 { get; set; }
-        [XmlAttribute] public float c3 { get; set; }
-        [XmlAttribute] public float c4 { get; set; }
     }
 
     public class Ref : ScmlElement
@@ -182,6 +267,7 @@ namespace Spriter2UnityDX.Importing
         [XmlAttribute] public string name { get; set; }
         [XmlAttribute("object_type")] public ObjectType objectType { get; set; } // enum : SPRITE,BONE,BOX,POINT,SOUND,ENTITY,VARIABLE //Dengar.NOTE (except not in all caps)
         [XmlElement("key")] public List<TimeLineKey> keys = new List<TimeLineKey>(); // <key> tags within <timeline> tags
+        [XmlElement("meta")] public SpriterMeta metadata;
     }
 
     public enum CurveType
@@ -195,9 +281,9 @@ namespace Spriter2UnityDX.Importing
         bezier
     }
 
-    public class TimeLineKey : ScmlElement
+    public class TimeLineKey : SpriterKey
     {
-        public TimeLineKey() { time = 0; spin = 1; }
+        public TimeLineKey() { spin = 1; }
 
         public override string ToString()
         {
@@ -215,29 +301,12 @@ namespace Spriter2UnityDX.Importing
             return clone;
         }
 
-        private float _time; // In seconds.
-
-        [XmlAttribute]
-        public float time
-        {
-            get { return _time; } // ! Read in seconds.
-            set { _time = value * 0.001f; } // ! Set in milliseconds!
-        }
-
-        // Use the following when getting (and especially setting) the time so that you know what units you're working in.
-        public float time_s { get { return _time; } set { _time = value; } }
-
         [XmlAttribute] public int spin { get; set; }
 
-        [XmlAttribute] public CurveType curve_type { get; set; } // enum : INSTANT,LINEAR,QUADRATIC,CUBIC //Dengar.NOTE (again, no caps)
-        [XmlAttribute] public float c1 { get; set; }
-        [XmlAttribute] public float c2 { get; set; }
-        [XmlAttribute] public float c3 { get; set; }
-        [XmlAttribute] public float c4 { get; set; }
         [XmlElement("bone", typeof(SpatialInfo)), XmlElement("object", typeof(SpriteInfo))]
         public SpatialInfo info { get; set; }
 
-        public TimeLineKey timeZeroAuxKey;
+        [XmlIgnore] public TimeLineKey timeZeroAuxKey;
     }
 
     public class SpatialInfo
