@@ -35,10 +35,10 @@ You have two simple options for installation: grab the UnityPackage from Release
 2. **Install from Source**<br>
     1. Clone or download the full repo:<br>
     `git clone https://github.com/TerminalJack/stui.git`<br>
-    2. In your OS file browser, locate the Spriter2UnityDX folder inside the repo.<br>
+    2. In your OS file browser, locate the `Stui/` folder (the one found in the `Assets/` folder) inside the repo.<br>
     3. Drag-and-drop that folder into your Unity `Project` window.
 
-> The default installation location is `Assets/Spriter2UnityDX` but you can rename the folder and/or move it into another folder such as `Assets/Plugins/` or `Assets/3rdParty/`.
+> The default installation location is `Assets/Stui/` but you can rename the folder and/or move it into another folder such as `Assets/Plugins/` or `Assets/3rdParty/`.
 
 ## Quick Start!
 
