@@ -46,11 +46,6 @@ namespace Spriter2UnityDX
             {
                 action?.Invoke();
             }
-            else
-            {
-                Debug.LogWarning($"A Spriter Event Handler for the Spriter event '{spriterEventName}' didn't " +
-                    "register with the Event Controller");
-            }
         }
     }
 }

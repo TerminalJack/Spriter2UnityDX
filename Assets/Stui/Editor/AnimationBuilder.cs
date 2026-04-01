@@ -255,6 +255,11 @@ namespace Spriter2UnityDX.Animations
 
             AddSoundEventsToClip(animation, clip);
 
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, adding Spriter events to clip";
+
+            AddSpriterEventsToClip(animation, clip);
+
             if (!ArrayUtility.Contains(Controller.animationClips, clip))
             {   // Don't add the clip if it's already there
                 if (buildCtx.IsCanceled) { yield break; }
@@ -315,6 +320,30 @@ namespace Spriter2UnityDX.Animations
                         soundEvent.intParameter = soundIdx;
 
                         animEvents.Add(soundEvent);
+                    }
+                }
+
+                AnimationUtility.SetAnimationEvents(clip, animEvents.ToArray());
+            }
+        }
+
+        private void AddSpriterEventsToClip(Animation animation, AnimationClip clip)
+        {
+            if (animation.eventlines.Count > 0)
+            {
+                var animEvents = AnimationUtility.GetAnimationEvents(clip).ToList();
+
+                foreach (var eventline in animation.eventlines)
+                {
+                    foreach (var key in eventline.keys)
+                    {
+                        var spriterEvent = new AnimationEvent();
+
+                        spriterEvent.functionName = nameof(EventController.EventController_HandleEvent);
+                        spriterEvent.time = key.time;
+                        spriterEvent.stringParameter = eventline.name;
+
+                        animEvents.Add(spriterEvent);
                     }
                 }
 

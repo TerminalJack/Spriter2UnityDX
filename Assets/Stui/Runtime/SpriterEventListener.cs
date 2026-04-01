@@ -18,11 +18,15 @@ namespace Spriter2UnityDX
         [SerializeField] private List<SpriterEventBinding> _bindings = new List<SpriterEventBinding>();
 
         [HideInInspector] public string _eventName; // The importer will set this.
+
         private EventController _controller;
+        private bool showMissingControllerWarningMsg = true;
 
         // Public API for user scripts to register/unregister handlers programmatically.
         public void Register(Action callback)
         {
+            AcquireController();
+
             if (_controller != null)
             {
                 _controller.AddHandler(_eventName, callback);
@@ -31,25 +35,18 @@ namespace Spriter2UnityDX
 
         public void Unregister(Action callback)
         {
+            AcquireController();
+
             if (_controller != null)
             {
                 _controller.RemoveHandler(_eventName, callback);
             }
         }
 
-        private void Awake()
-        {
-            // Find the EventController on the root of the prefab.
-            _controller = GetComponentInParent<EventController>();
-
-            if (_controller == null)
-            {
-                Debug.LogError($"SpriterEventListener on {gameObject.name} could not find an EventController in its parents.");
-            }
-        }
-
         private void OnEnable()
         {
+            AcquireController();
+
             if (_controller != null)
             {
                 // Register all bindings.
@@ -65,6 +62,8 @@ namespace Spriter2UnityDX
 
         private void OnDisable()
         {
+            AcquireController();
+
             if (_controller != null)
             {
                 // Unregister all bindings
@@ -74,6 +73,21 @@ namespace Spriter2UnityDX
                     {
                         _controller.RemoveHandler(_eventName, binding.callback.Invoke);
                     }
+                }
+            }
+        }
+
+        private void AcquireController()
+        {
+            if (_controller == null)
+            {
+                // Find the EventController on the root of the prefab.
+                _controller = GetComponentInParent<EventController>();
+
+                if (_controller == null && showMissingControllerWarningMsg)
+                {
+                    Debug.LogError($"SpriterEventListener on {gameObject.name} could not find an EventController in its parents.");
+                    showMissingControllerWarningMsg = false;
                 }
             }
         }
