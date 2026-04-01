@@ -7,7 +7,7 @@ using System.Linq;
 namespace Spriter2UnityDX.Entity
 {
     using Importing;
-
+    using UnityEditor;
     using Debug = UnityEngine.Debug;
 
     // This class is used for tracking information that spans across all of an entity's animations.
@@ -25,6 +25,10 @@ namespace Spriter2UnityDX.Entity
             public Transform virtualParentTransform; // The transform where the VirtualParent component is.
 
             public List<string> parentBoneNames = new List<string>(); // Empty if there aren't any.
+
+            public Dictionary<int, SpriterVarDef> variableDefs = new Dictionary<int, SpriterVarDef>(); // Empty if there aren't any variables for this object.
+
+            public bool HasVariables { get { return variableDefs.Count > 0;  } }
 
             public SpriterInfoBase(string _name, ObjectType _type)
             {
@@ -63,13 +67,24 @@ namespace Spriter2UnityDX.Entity
 
         public string EntityName { get { return _entityName;  } }
 
+        public List<SpriterSoundItem> soundItems = new List<SpriterSoundItem>();
+
+        // The key for these is the id.
+        public Dictionary<int, SpriterVarDef> variableDefs = new Dictionary<int, SpriterVarDef>(); // Empty if there aren't any entity-scoped variables.
+        public Dictionary<int, SpriterTagListItem> tagDefs = new Dictionary<int, SpriterTagListItem>(); // Empty if there aren't any tags.
+
+        public bool HasMetadata { get { return HasVariables || HasTags;  } }
+        public bool HasVariables { get { return variableDefs.Count > 0;  } }
+        public bool HasTags { get { return tagDefs.Count > 0; } }
+
         private string _entityName;
 
         public SpriterEntityInfo()
         {
         }
 
-        public IEnumerator Process(Entity entity, Dictionary<int, IDictionary<int, File>> fileInfo, IBuildTaskContext buildCtx)
+        public IEnumerator Process(string spriterProjDirectory, ScmlObject scmlObj, Entity entity,
+            Dictionary<int, IDictionary<int, File>> fileInfo, IBuildTaskContext buildCtx)
         {
             _entityName = entity.name;
 
@@ -98,40 +113,52 @@ namespace Spriter2UnityDX.Entity
             CheckForAnimatedBoneAlphas(entity);
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, processing bones";
-            ProcessBones(entity); // Populates boneInfo collection.
+            yield return $"{buildCtx.MessagePrefix}, preprocessing entity metadata";
+            PreprocessEntityMetadata(scmlObj, entity); // Populates entity's variableDefs and tagDefs collections.
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, processing sprites";
-            ProcessSprites(entity); // Populates objectInfo collection.
+            yield return $"{buildCtx.MessagePrefix}, preprocessing bones";
+            PreprocessBones(entity); // Populates boneInfo collection.
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, processing action points";
-            ProcessActionPoints(entity); // Adds to objectInfo collection.
+            yield return $"{buildCtx.MessagePrefix}, preprocessing sprites";
+            PreprocessSprites(entity); // Populates objectInfo collection.
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, processing unsupported types";
-            ProcessUnsupportTypes(entity); // Warns of unsupported types.  Puts them in objectInfo collection.
+            yield return $"{buildCtx.MessagePrefix}, preprocessing action points";
+            PreprocessActionPoints(entity); // Adds to objectInfo collection.
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, processing pivot points";
-            ProcessSpritePivots(entity, fileInfo);
+            yield return $"{buildCtx.MessagePrefix}, preprocessing Spriter events";
+            PreprocessEvents(entity); // Adds to objectInfo collection.
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, processing bones with multiple parents";
-            ProcessBonesWithMultipleParents(entity);
+            yield return $"{buildCtx.MessagePrefix}, preprocessing Spriter sounds";
+            PreprocessSounds(spriterProjDirectory, scmlObj, entity); // Validates and adds to soundItems collection.
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, processing objects with multiple parents";
-            ProcessObjectsWithMultipleParents(entity);
+            yield return $"{buildCtx.MessagePrefix}, preprocessing unsupported types";
+            PreprocessUnsupportTypes(entity); // Warns of unsupported types.  Puts them in objectInfo collection.
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, processing z-indices";
-            ProcessZIndices(entity);
+            yield return $"{buildCtx.MessagePrefix}, preprocessing pivot points";
+            PreprocessSpritePivots(entity, fileInfo);
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, processing pivots and parents";
-            ProcessPivotsAndParents(entity);
+            yield return $"{buildCtx.MessagePrefix}, preprocessing bones with multiple parents";
+            PreprocessBonesWithMultipleParents(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, preprocessing objects with multiple parents";
+            PreprocessObjectsWithMultipleParents(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, preprocessing z-indices";
+            PreprocessZIndices(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, preprocessing pivots and parents";
+            PreprocessPivotsAndParents(entity);
         }
 
         private void CheckForMissingMainlineKeys(Entity entity)
@@ -472,14 +499,152 @@ namespace Spriter2UnityDX.Entity
             }
         }
 
-        private void ProcessBones(Entity entity)
+        private void PreprocessEntityMetadata(ScmlObject scmlObj, Entity entity)
         {
-            // Populate the boneInfo collection...
+            // Populate variableDefs and tagDefs collections.  Variables can be defined at the entity level or at the
+            // timeline (bone, sprite, action point, event, etc.) level.  All tags are defined at the Spriter project
+            // level.
+
+            if (entity.variableDefs.Count > 0)
+            {
+                Log($"Entity '{entity.name}' has the following variable definitions:");
+
+                foreach (var variableDef in entity.variableDefs)
+                {
+                    Log($"    variable name: {variableDef.name}, type: {variableDef.type}, default value: {variableDef.defaultValue}");
+
+                    if (variableDef.type == SpriterVarType.String)
+                    {   // Figure out what all of the possible string values this string variable can have.
+                        var possibleStringValues =
+                            entity.animations?
+                                .SelectMany(a => a.metadata?.varlines ?? Enumerable.Empty<SpriterVarline>())
+                                .Where(v => v.varDefId == variableDef.id)
+                                .SelectMany(v => v.keys ?? Enumerable.Empty<SpriterVarlineKey>())
+                                .Select(k => k.value)
+                                .Where(v => v != null)
+                                .Distinct()
+                                .OrderBy(v => v)
+                                .ToList()
+                            ?? new List<string>();
+
+                        // Make sure the default value is the first element of the list...
+
+                        possibleStringValues.RemoveAll(s => s == variableDef.defaultValue);
+                        possibleStringValues.Insert(0, variableDef.defaultValue);
+
+                        variableDef.possibleStringValues = possibleStringValues;
+
+                        Log($"        '{variableDef.name}' has the possible string values:");
+
+                        foreach (var s in variableDef.possibleStringValues)
+                        {
+                            Log($"            '{s}'");
+                        }
+                    }
+
+                    variableDefs.Add(variableDef.id, variableDef);
+                }
+            }
+            else
+            {
+                Log($"Entity '{entity.name}' has no variable definitions.");
+            }
+
+            if (scmlObj.tags.Count > 0)
+            {
+                Log($"Entity '{entity.name}' has the following tag definitions:");
+
+                foreach (var tagDef in scmlObj.tags)
+                {
+                    Log($"    tag id: {tagDef.id}, tag name: {tagDef.name}");
+                    tagDefs.Add(tagDef.id, tagDef);
+                }
+
+            }
+            else
+            {
+                Log($"Entity '{entity.name}' has no tag definitions.");
+            }
+        }
+
+        private void PreprocessObjectMetadata(Entity entity, SpriterInfoBase info)
+        {
+            var allVarDefs = entity.objectInfos.FirstOrDefault(o => o.name == info.name && o.objectType == info.type)?.variableDefs;
+
+            if (allVarDefs != null && allVarDefs.Count > 0)
+            {
+                Log($"        '{info.name}' has the following variable definitions:");
+
+                foreach (var variableDef in allVarDefs)
+                {
+                    Log($"            variable name: {variableDef.name}, type: {variableDef.type}, default value: {variableDef.defaultValue}");
+
+                    if (variableDef.type == SpriterVarType.String)
+                    {   // Figure out what all of the possible string values this string variable can have.
+                        List<string> possibleStringValues;
+
+                        if (info.type == ObjectType.spriterEvent)
+                        {
+                            possibleStringValues = entity.animations?
+                                .SelectMany(a => a.eventlines)
+                                .Where(e => e.name == info.name)
+                                .SelectMany(e => e.metadata?.varlines ?? Enumerable.Empty<SpriterVarline>())
+                                .Where(v => v.varDefId == variableDef.id)
+                                .SelectMany(v => v.keys ?? Enumerable.Empty<SpriterVarlineKey>())
+                                .Select(k => k.value)
+                                .Where(v => v != null)
+                                .Distinct()
+                                .OrderBy(v => v)
+                                .ToList()
+                            ?? new List<string>();
+                        }
+                        else
+                        {
+                            possibleStringValues = entity.animations?
+                                .SelectMany(a => a.timelines ?? Enumerable.Empty<TimeLine>())
+                                .Where(t => t.name == info.name && t.objectType == info.type)
+                                .SelectMany(t => t.metadata?.varlines ?? Enumerable.Empty<SpriterVarline>())
+                                .Where(v => v.varDefId == variableDef.id)
+                                .SelectMany(v => v.keys ?? Enumerable.Empty<SpriterVarlineKey>())
+                                .Select(k => k.value)
+                                .Where(v => v != null)
+                                .Distinct()
+                                .OrderBy(v => v)
+                                .ToList()
+                            ?? new List<string>();
+                        }
+
+                        // Make sure the default value is the first element of the list...
+
+                        possibleStringValues.RemoveAll(s => s == variableDef.defaultValue);
+                        possibleStringValues.Insert(0, variableDef.defaultValue);
+
+                        variableDef.possibleStringValues = possibleStringValues;
+
+                        Log($"        '{variableDef.name}' has the possible string values:");
+
+                        foreach (var s in variableDef.possibleStringValues)
+                        {
+                            Log($"            '{s}'");
+                        }
+                    }
+
+                    info.variableDefs.Add(variableDef.id, variableDef);
+                }
+            }
+
+            // Note that objects can have taglines but the tag definitions are the same ones as those at the Spriter
+            // project level (which are put into SpriterEntityInfo.tagDefs.)
+        }
+
+        private void PreprocessBones(Entity entity)
+        {
+            // Populate the boneInfo collection with any bones...
             var allBoneNames =
                 (from anim in entity.animations
-                from tl in anim.timelines
-                where tl.objectType == ObjectType.bone
-                select tl.name)
+                 from tl in anim.timelines
+                 where tl.objectType == ObjectType.bone
+                 select tl.name)
                 .Distinct()
                 .ToList();
 
@@ -488,14 +653,17 @@ namespace Spriter2UnityDX.Entity
             foreach (var boneName in allBoneNames)
             {
                 Log($"    '{boneName}'");
-                boneInfo.Add(boneName, new SpriterBoneInfo(boneName, ObjectType.bone));
+
+                var newBoneInfo = new SpriterBoneInfo(boneName, ObjectType.bone);
+                PreprocessObjectMetadata(entity, newBoneInfo);
+
+                boneInfo.Add(boneName, newBoneInfo);
             }
         }
 
-        private void ProcessSprites(Entity entity)
+        private void PreprocessSprites(Entity entity)
         {
-
-            // Populate the objectInfo collection...
+            // Populate the objectInfo collection with any sprites...
             var allSpriteNames =
                 (from anim in entity.animations
                  from tl in anim.timelines
@@ -509,14 +677,17 @@ namespace Spriter2UnityDX.Entity
             foreach (var spriteName in allSpriteNames)
             {
                 Log($"    '{spriteName}'");
-                objectInfo.Add(spriteName, new SpriterObjectInfo(spriteName, ObjectType.sprite));
+
+                var newSpriteInfo = new SpriterObjectInfo(spriteName, ObjectType.sprite);
+                PreprocessObjectMetadata(entity, newSpriteInfo);
+
+                objectInfo.Add(spriteName, newSpriteInfo);
             }
         }
 
-        private void ProcessActionPoints(Entity entity)
+        private void PreprocessActionPoints(Entity entity)
         {
-
-            // Populate the objectInfo collection...
+            // Populate the objectInfo collection with any action points...
             var allActionPointNames =
                 (from anim in entity.animations
                  from tl in anim.timelines
@@ -525,23 +696,146 @@ namespace Spriter2UnityDX.Entity
                 .Distinct()
                 .ToList();
 
-            Log($"Entity '{entity.name}' has the following action points:");
-
-            foreach (var actionPointName in allActionPointNames)
+            if (allActionPointNames.Count > 0)
             {
-                Log($"    '{actionPointName}'");
-                objectInfo.Add(actionPointName, new SpriterObjectInfo(actionPointName, ObjectType.point));
+                Log($"Entity '{entity.name}' has the following action points:");
+
+                foreach (var actionPointName in allActionPointNames)
+                {
+                    Log($"    '{actionPointName}'");
+
+                    var newActionPtInfo = new SpriterObjectInfo(actionPointName, ObjectType.point);
+                    PreprocessObjectMetadata(entity, newActionPtInfo);
+
+                    objectInfo.Add(actionPointName, newActionPtInfo);
+                }
+            }
+            else
+            {
+                Log($"Entity '{entity.name}' has no action points.");
             }
         }
 
-        private void ProcessUnsupportTypes(Entity entity)
+        private void PreprocessEvents(Entity entity)
         {
+            // All events will be found here...
+            var allEventNames =
+                (from anim in entity.animations
+                 from evt in anim.eventlines
+                 select evt.name)
+                .Distinct()
+                .OrderBy(n => n)
+                .ToList();
 
+            if (allEventNames.Count > 0)
+            {
+                Log($"Entity '{entity.name}' has the following events:");
+
+                foreach (var eventName in allEventNames)
+                {
+                    Log($"    '{eventName}'");
+
+                    var newEventInfo = new SpriterObjectInfo(eventName, ObjectType.spriterEvent);
+                    PreprocessObjectMetadata(entity, newEventInfo);
+
+                    objectInfo.Add(eventName, newEventInfo);
+                }
+            }
+            else
+            {
+                Log($"Entity '{entity.name}' has no events.");
+            }
+        }
+
+        private void PreprocessSounds(string spriterProjDirectory, ScmlObject scmlObj, Entity entity)
+        {
+            // Validate and add to soundItems collection.
+            var allSoundlineInfo =
+                entity.animations.SelectMany(a => a.soundlines.Select(s => (animationName: a.name, soundline: s))).ToList();
+
+            if (allSoundlineInfo.Count == 0)
+            {
+                Log($"Entity '{entity.name}' has no soundlines:");
+                return;
+            }
+
+            Log($"Entity '{entity.name}' has the following soundlines:");
+
+            foreach (var soundlineInfo in allSoundlineInfo)
+            {
+                Log($"    '{soundlineInfo.soundline.name}'");
+
+                foreach (var key in soundlineInfo.soundline.keys)
+                {
+                    var soundObject = key.soundObject;
+
+                    // Validate that there is a corresponding sound file in the Spriter project's folders list and that
+                    // the file exists.
+
+                    var fileItem =
+                        scmlObj.folders
+                            .FirstOrDefault(f => f.id == soundObject.folder)?
+                            .files
+                            .FirstOrDefault(file => file.id == soundObject.file);
+
+                    if (fileItem == null)
+                    {
+                        Debug.LogWarning("A soundline references a sound file but that file doesn't exist in the " +
+                            $"project's folder/file list.  FolderId: {soundObject.folder}, FileId: {soundObject.file}");
+                    }
+                    else if (fileItem.objectType != ObjectType.sound)
+                    {
+                        Debug.LogWarning("A soundline references a sound file but the referenced file doesn't have the " +
+                            $"type of {ObjectType.sound}.  The referenced file has a type of {fileItem.objectType}.  " +
+                            $"FolderId: {soundObject.folder}, FileId: {soundObject.file}");
+                    }
+                    else if (!System.IO.File.Exists($"{spriterProjDirectory}/{fileItem.name}"))
+                    {
+                        Debug.LogWarning($"A soundline references a sound file at '{spriterProjDirectory}/{fileItem.name}' " +
+                            "but that file doesn't exist.");
+                    }
+                    else
+                    {
+                        SpriterSoundItem soundItem = new SpriterSoundItem();
+
+                        soundItem.soundItemName = $"{soundlineInfo.soundline.name}, {soundlineInfo.animationName} animation @ {key.time_s} seconds";
+                        soundItem.animationName = soundlineInfo.animationName;
+                        soundItem.soundlineName = soundlineInfo.soundline.name;
+                        soundItem.time = key.time_s;
+                        soundItem.folderId = soundObject.folder;
+                        soundItem.fileId = soundObject.file;
+                        soundItem.volume = soundObject.volume;
+                        soundItem.panning = soundObject.panning;
+
+                        string clipPath = $"{spriterProjDirectory}/{fileItem.name}";
+                        soundItem.audioClip = (AudioClip)AssetDatabase.LoadAssetAtPath(clipPath, typeof(AudioClip));
+
+                        if (soundItem.audioClip == null)
+                        {
+                            Debug.LogWarning($"A soundline references a sound file at '{clipPath}' but Unity cannot " +
+                                "load the asset at that path as an AudioClip.");
+                        }
+                        else
+                        {
+                            Log($"       Animation name: {soundItem.animationName}, time: {soundItem.time}, " +
+                                $"folderId: {soundItem.folderId}, fileId: {soundItem.fileId}, " +
+                                $"volume: {soundItem.volume}, panning: {soundItem.panning}");
+
+                            soundItems.Add(soundItem);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void PreprocessUnsupportTypes(Entity entity)
+        {
             // Check for unsupported types and warn the user.  They will still go into objectInfo.
             var allUnsupportedTypeNames =
                 (from anim in entity.animations
                  from tl in anim.timelines
-                 where tl.objectType != ObjectType.sprite && tl.objectType != ObjectType.bone && tl.objectType != ObjectType.point
+                 where tl.objectType != ObjectType.sprite && tl.objectType != ObjectType.bone
+                    && tl.objectType != ObjectType.point && tl.objectType != ObjectType.spriterEvent
                  select new { tl.name, tl.objectType })
                 .Distinct()
                 .ToList();
@@ -577,7 +871,7 @@ namespace Spriter2UnityDX.Entity
             }
         }
 
-        private void ProcessSpritePivots(Entity entity, Dictionary<int, IDictionary<int, File>> fileInfo)
+        private void PreprocessSpritePivots(Entity entity, Dictionary<int, IDictionary<int, File>> fileInfo)
         {
             // Setup all of the entity's sprite pivots...
             var spriteInfos =
@@ -624,7 +918,7 @@ namespace Spriter2UnityDX.Entity
             }
         }
 
-        private void ProcessBonesWithMultipleParents(Entity entity)
+        private void PreprocessBonesWithMultipleParents(Entity entity)
         {
             // Find all of the bones that have more than one parent...
             var bonesWithMultipleParents =
@@ -672,7 +966,7 @@ namespace Spriter2UnityDX.Entity
             }
         }
 
-        private void ProcessObjectsWithMultipleParents(Entity entity)
+        private void PreprocessObjectsWithMultipleParents(Entity entity)
         {
             // Find all of the objects that have more than one parent...
             var objectsWithMultipleParents =
@@ -720,7 +1014,7 @@ namespace Spriter2UnityDX.Entity
             }
         }
 
-        private void ProcessZIndices(Entity entity)
+        private void PreprocessZIndices(Entity entity)
         {
             // Populate all of the timeline key.infos with the z_index.  We'll do this
             // both for bones and sprites but it is only needed for sprites.
@@ -778,7 +1072,7 @@ namespace Spriter2UnityDX.Entity
             }
         }
 
-        // ProcessPivotsAndParents() helper methods...
+        // PreprocessPivotsAndParents() helper methods...
 
         bool IsParentChange(string curr, string prev, string last, bool isFirst)
             => isFirst ? !string.Equals(last, curr)
@@ -830,7 +1124,7 @@ namespace Spriter2UnityDX.Entity
             return false; // Don't create a time zero aux key.
         }
 
-        private void ProcessPivotsAndParents(Entity entity)
+        private void PreprocessPivotsAndParents(Entity entity)
         {
             // Here we will deal with reparenting and pivot changes.
             //
@@ -976,7 +1270,7 @@ namespace Spriter2UnityDX.Entity
             }
         }
 
-        private const string LOG_SYMBOL = "ENABLE_S2UDX_DEBUG_LOGS";
+        private const string LOG_SYMBOL = "ENABLE_STUI_DEBUG_LOGS";
 
         [Conditional(LOG_SYMBOL)]
         private static void Log(object message, Object context = null)

@@ -14,7 +14,7 @@ namespace Spriter2UnityDX
 	// at runtime, please make these changes to this component, rather than SpriteRenderer
 
     [DisallowMultipleComponent]
-    [ExecuteInEditMode]
+    [ExecuteAlways]
     [AddComponentMenu("")]
 	[RequireComponent (typeof(SpriteRenderer))]
 	public class TextureController : MonoBehaviour

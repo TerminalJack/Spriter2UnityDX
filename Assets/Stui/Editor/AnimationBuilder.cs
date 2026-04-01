@@ -117,8 +117,6 @@ namespace Spriter2UnityDX.Animations
                             if (buildCtx.IsCanceled) { yield break; }
                             yield return $"{buildCtx.MessagePrefix}, bone: '{timeLine.name}', creating animation curves";
 
-                            List<TimeLineKey> parentTimeline;
-                            parentTimelines.TryGetValue(bref.parent, out parentTimeline);
                             SetCurves(bone, DefaultBones[timeLine.name], timeLine, clip, animation);
                             pendingTransforms.Remove(timeLine.name);
                         }
@@ -143,8 +141,7 @@ namespace Spriter2UnityDX.Animations
                             yield return $"{buildCtx.MessagePrefix}, sprite: '{timeLine.name}', creating animation curves";
 
                             var defaultZ = objRef.z_index;
-                            List<TimeLineKey> parentTimeline;
-                            parentTimelines.TryGetValue(objRef.parent, out parentTimeline);
+
                             SetCurves(spriteTransform, DefaultSprites[timeLine.name], timeLine, clip, animation, ref defaultZ);
                             SetAdditionalCurves(spriteTransform, animation.mainlineKeys, timeLine, clip, defaultZ);
                             pendingTransforms.Remove(timeLine.name);
@@ -159,8 +156,6 @@ namespace Spriter2UnityDX.Animations
                             if (buildCtx.IsCanceled) { yield break; }
                             yield return $"{buildCtx.MessagePrefix}, action point: '{timeLine.name}', creating animation curves";
 
-                            List<TimeLineKey> parentTimeline;
-                            parentTimelines.TryGetValue(objRef.parent, out parentTimeline);
                             SetCurves(actionPointTransform, DefaultActionPoints[timeLine.name], timeLine, clip, animation);
                             pendingTransforms.Remove(timeLine.name);
                         }
@@ -207,10 +202,16 @@ namespace Spriter2UnityDX.Animations
                 yield return $"{buildCtx.MessagePrefix}, overwriting animation clip";
 
                 var oldClip = OriginalClips[animation.name];
-                var cachedEvents = oldClip.events;
+                var cachedEvents = AnimationUtility.GetAnimationEvents(oldClip).ToList();
+
+                // Remove the events that the importer generates and manages.
+                cachedEvents.RemoveAll(e => e.functionName == nameof(SoundController.SoundController_PlaySound));
+                cachedEvents.RemoveAll(e => e.functionName == nameof(EventController.EventController_HandleEvent));
+
                 EditorUtility.CopySerialized(clip, oldClip);
                 clip = oldClip;
-                AnimationUtility.SetAnimationEvents(clip, cachedEvents);
+
+                AnimationUtility.SetAnimationEvents(clip, cachedEvents.ToArray());
                 ProcessingInfo.ModifiedAnims.Add(clip);
             }
             else
@@ -249,6 +250,11 @@ namespace Spriter2UnityDX.Animations
                 ProcessingInfo.NewAnims.Add(clip);
             }
 
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, creating animation events for sounds";
+
+            AddSoundEventsToClip(animation, clip);
+
             if (!ArrayUtility.Contains(Controller.animationClips, clip))
             {   // Don't add the clip if it's already there
                 if (buildCtx.IsCanceled) { yield break; }
@@ -281,6 +287,39 @@ namespace Spriter2UnityDX.Animations
             EditorUtility.SetDirty(clip);
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(clip));
+        }
+
+        private void AddSoundEventsToClip(Animation animation, AnimationClip clip)
+        {
+            // Add any animation events for Spriter sounds to the clip.
+            var soundController = Root.GetComponent<SoundController>();
+            if (soundController)
+            {
+                var animEvents = AnimationUtility.GetAnimationEvents(clip).ToList();
+
+                foreach (var soundItem in entityInfo.soundItems.Where(si => si.animationName == animation.name))
+                {
+                    int soundIdx = soundController.soundItems.IndexOf(soundItem);
+                    if (soundIdx < 0)
+                    {
+                        Debug.LogWarning("A sound item wasn't found in the SoundController.soundItems list.  The " +
+                            $"sound item details are: soundlineName: {soundItem.soundlineName}, animationName: " +
+                            $"{soundItem.animationName}, time: {soundItem.time}");
+                    }
+                    else
+                    {
+                        var soundEvent = new AnimationEvent();
+
+                        soundEvent.functionName = nameof(SoundController.SoundController_PlaySound);
+                        soundEvent.time = soundItem.time;
+                        soundEvent.intParameter = soundIdx;
+
+                        animEvents.Add(soundEvent);
+                    }
+                }
+
+                AnimationUtility.SetAnimationEvents(clip, animEvents.ToArray());
+            }
         }
 
         private void SetCurves(Transform child, SpatialInfo defaultInfo, TimeLine timeLine, AnimationClip clip, Animation animation)

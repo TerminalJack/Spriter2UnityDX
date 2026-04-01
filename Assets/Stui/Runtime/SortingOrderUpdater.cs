@@ -2,7 +2,7 @@
 
 namespace Spriter2UnityDX
 {
-    [ExecuteInEditMode]
+    [ExecuteAlways]
     public class SortingOrderUpdater : MonoBehaviour
     {
         private SpriteRenderer _spriteRendererComponent;

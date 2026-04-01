@@ -21,6 +21,7 @@ namespace Spriter2UnityDX.Prefabs
 
     using UnityEngine.Rendering;
     using Spriter2UnityDX.Extensions;
+    using Unity.VisualScripting;
 
     public class PrefabBuilder : UnityEngine.Object
     {
@@ -32,25 +33,22 @@ namespace Spriter2UnityDX.Prefabs
             ProcessingInfo = info;
         }
 
-        public IEnumerator Build(ScmlObject obj, string scmlPath, IBuildTaskContext buildCtx)
+        public IEnumerator Build(ScmlObject scmlObj, string scmlPath, IBuildTaskContext buildCtx)
         {
             // The process begins by loading up all the textures
-            var directory = Path.GetDirectoryName(scmlPath);
+            var spriterProjDirectory = Path.GetDirectoryName(scmlPath);
 
-            // I find these slightly more useful than Lists because you can be 100% sure
-            // that the ids match and items can be added in any order
-            var folders = new Dictionary<int, IDictionary<int, Sprite>>();
-            var fileInfo = new Dictionary<int, IDictionary<int, File>>();
+            // Make sure all of the image files have the proper import settings...
 
             AssetDatabase.StartAssetEditing();
 
-            foreach (var folder in obj.folders)
+            foreach (var folder in scmlObj.folders)
             {
                 foreach (var file in folder.files)
                 {
                     if (file.objectType == ObjectType.sprite)
                     {
-                        var path = string.Format("{0}/{1}", directory, file.name);
+                        var path = string.Format("{0}/{1}", spriterProjDirectory, file.name);
 
                         if (buildCtx.IsCanceled) { yield break; }
                         yield return $"{buildCtx.MessagePrefix}: Setting texture import options for {path}";
@@ -62,7 +60,12 @@ namespace Spriter2UnityDX.Prefabs
 
             AssetDatabase.StopAssetEditing();
 
-            foreach (var folder in obj.folders)
+            // Now that the image files have the proper import settings, populate the folders and fileInfo collections...
+
+            var folders = new Dictionary<int, IDictionary<int, Sprite>>();
+            var fileInfo = new Dictionary<int, IDictionary<int, File>>();
+
+            foreach (var folder in scmlObj.folders)
             {
                 var files = folders[folder.id] = new Dictionary<int, Sprite>();
                 var fi = fileInfo[folder.id] = new Dictionary<int, File>();
@@ -71,7 +74,7 @@ namespace Spriter2UnityDX.Prefabs
                 {
                     if (file.objectType == ObjectType.sprite)
                     {
-                        var path = string.Format("{0}/{1}", directory, file.name);
+                        var path = string.Format("{0}/{1}", spriterProjDirectory, file.name);
 
                         if (buildCtx.IsCanceled) { yield break; }
                         yield return $"{buildCtx.MessagePrefix}: Getting sprite at {path}";
@@ -82,9 +85,9 @@ namespace Spriter2UnityDX.Prefabs
                 }
             }
 
-            foreach (var entity in obj.entities)
+            foreach (var entity in scmlObj.entities)
             {   // Now begins the real prefab build process
-                var prefabPath = string.Format("{0}/{1}.prefab", directory, entity.name);
+                var prefabPath = string.Format("{0}/{1}.prefab", spriterProjDirectory, entity.name);
 
                 if (buildCtx.IsCanceled) { yield break; }
                 yield return $"{buildCtx.MessagePrefix}: Getting/creating prefab at {prefabPath}";
@@ -108,7 +111,7 @@ namespace Spriter2UnityDX.Prefabs
 
                 var prefabBuildProcess =
                     IteratorUtils.SafeEnumerable(
-                        () => TryBuild(entity, prefab, instance, directory, prefabPath, folders, fileInfo, buildCtx),
+                        () => TryBuild(scmlObj, entity, prefab, instance, spriterProjDirectory, prefabPath, folders, fileInfo, buildCtx),
                         ex =>
                         {
                             DestroyImmediate(instance);
@@ -128,8 +131,9 @@ namespace Spriter2UnityDX.Prefabs
             }
         }
 
-        private IEnumerator TryBuild(Entity entity, GameObject prefab, GameObject instance, string directory, string prefabPath,
-            IDictionary<int, IDictionary<int, Sprite>> folders, Dictionary<int, IDictionary<int, File>> fileInfo, IBuildTaskContext buildCtx)
+        private IEnumerator TryBuild(ScmlObject scmlObj, Entity entity, GameObject prefab, GameObject instance,
+            string spriterProjDirectory, string prefabPath, IDictionary<int, IDictionary<int, Sprite>> folders,
+            Dictionary<int, IDictionary<int, File>> fileInfo, IBuildTaskContext buildCtx)
         {
             if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}: Processing entity '{entity.name}'";
@@ -139,7 +143,7 @@ namespace Spriter2UnityDX.Prefabs
             // SpriterEntityInfo will initialize and gather info about the bones and sprites for this entity.
             SpriterEntityInfo entityInfo = new SpriterEntityInfo();
 
-            var entityInfoProcess = entityInfo.Process(entity, fileInfo, buildCtx);
+            var entityInfoProcess = entityInfo.Process(spriterProjDirectory, scmlObj, entity, fileInfo, buildCtx);
             while (entityInfoProcess.MoveNext())
             {
                 yield return entityInfoProcess.Current;
@@ -147,8 +151,8 @@ namespace Spriter2UnityDX.Prefabs
 
             if (buildCtx.IsCanceled) { yield break; }
 
-            var controllerPath = string.Format("{0}/{1}.controller", directory, entity.name);
-            var animator = instance.GetOrAddComponent<Animator>(); // Fetches/creeates the prefab's Animator
+            var controllerPath = string.Format("{0}/{1}.controller", spriterProjDirectory, entity.name);
+            var animator = instance.GetOrAddComponent<Animator>(); // Fetches/creates the prefab's Animator
 
             AnimatorController controller = null;
 
@@ -175,10 +179,25 @@ namespace Spriter2UnityDX.Prefabs
 
             var defaultBones = new Dictionary<string, SpatialInfo>();  // These are basically the object states on the first frame of the first animation
             var defaultSprites = new Dictionary<string, SpriteInfo>(); // They are used as control values in determining whether something has changed
-            var defaultActionPoints= new Dictionary<string, SpatialInfo>();
+            var defaultActionPoints = new Dictionary<string, SpatialInfo>();
 
             var animBuilder = new AnimationBuilder(ProcessingInfo, folders, transforms, defaultBones, defaultSprites, defaultActionPoints, prefabPath, controller, entityInfo);
             var firstAnim = true; //The prefab's graphic will be determined by the first frame of the first animation
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}: processing entity-scoped metadata";
+
+            ProcessEntityScopedMetadata(instance.transform, entityInfo);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}: processing entity events";
+
+            ProcessEntityEvents(instance.transform, entityInfo);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}: processing entity sounds";
+
+            ProcessEntitySounds(instance.transform, entityInfo);
 
             foreach (var animation in entity.animations)
             {
@@ -254,6 +273,274 @@ namespace Spriter2UnityDX.Prefabs
             }
 
             buildCtx.ImportedPrefabs.Add(prefabPath);
+        }
+
+        private void BuildSpriterVariableTransforms(Transform metadataTransform, List<SpriterVarDef> variableDefs)
+        {
+            // Build the variable transforms under the given metadata transform.
+            //
+            //   ...
+            //   └── ... metadata
+            //       └── varname1 (Float variable)
+            //       └── varname2 (Int variable)
+            //       └── varname3 (String variable)
+
+            foreach (var varDef in variableDefs)
+            {
+                var varTransformName = $"{varDef.name} ({varDef.type} variable)";
+
+                var varTransform = metadataTransform.Find(varTransformName);
+                if (varTransform == null)
+                {
+                    varTransform = new GameObject(varTransformName).transform;
+                }
+
+                varTransform.SetParent(metadataTransform, worldPositionStays: false);
+
+                // Remove any and all Spriter variable components that alread exist on this game object.  There
+                // should be at most one but the type may have changed between imports so remove all previous
+                // components to be safe.
+
+                var floatComponent = varTransform.gameObject.GetComponent<SpriterFloat>();
+                if (floatComponent)
+                {
+                    DestroyImmediate(floatComponent);
+                }
+
+                var intComponent = varTransform.gameObject.GetComponent<SpriterInt>();
+                if (intComponent)
+                {
+                    DestroyImmediate(intComponent);
+                }
+
+                var stringComponent = varTransform.gameObject.GetComponent<SpriterString>();
+                if (stringComponent)
+                {
+                    DestroyImmediate(stringComponent);
+                }
+
+                // Create the appropriate variable component...
+                switch (varDef.type)
+                {
+                    case SpriterVarType.Float:
+                        var floatVarComponent = varTransform.gameObject.AddComponent<SpriterFloat>();
+                        floatVarComponent.variableName = varDef.name;
+                        if (!float.TryParse(varDef.defaultValue, out floatVarComponent.defaultValue))
+                        {
+                            floatVarComponent.defaultValue = 0f;
+                        }
+
+                        floatVarComponent.value = floatVarComponent.defaultValue;
+                        break;
+
+                    case SpriterVarType.Int:
+                        var intVarComponent = varTransform.gameObject.AddComponent<SpriterInt>();
+                        intVarComponent.variableName = varDef.name;
+                        if (!int.TryParse(varDef.defaultValue, out intVarComponent.defaultValue))
+                        {
+                            intVarComponent.defaultValue = -1;
+                        }
+
+                        intVarComponent.valueAsFloat = (float)intVarComponent.defaultValue;
+                        break;
+
+                    case SpriterVarType.String:
+                        var stringVarComponent = varTransform.gameObject.AddComponent<SpriterString>();
+                        stringVarComponent.variableName = varDef.name;
+                        stringVarComponent.possibleValues = varDef.possibleStringValues.ToList();
+                        stringVarComponent.valueIndex = stringVarComponent.possibleValues.Count > 0 ? 0 : -1;
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        }
+
+        private void ProcessEntityScopedMetadata(Transform parentTransform, SpriterEntityInfo entityInfo)
+        {
+            // If this entity has any metadata (variables and/or tags) at the entity-level then create the neccessary hierarchy.
+            // The hierarchy will look like the following:
+            //
+            //   entity_name
+            //   └── entity_name metadata
+            //       └── varname1 (Float variable)
+            //       └── varname2 (Int variable)
+            //       └── varname3 (String variable)
+            //       └── tagname1 (Tag)
+            //       └── tagname2 (Tag)
+
+            string metadataGameObjectName = $"{parentTransform.name} metadata";
+            var metadataTransform = parentTransform.Find(metadataGameObjectName);
+
+            if (entityInfo.HasMetadata)
+            {
+                if (metadataTransform == null)
+                {
+                    metadataTransform = new GameObject(metadataGameObjectName).transform;
+                }
+
+                metadataTransform.SetParent(parentTransform, worldPositionStays: false);
+
+                BuildSpriterVariableTransforms(metadataTransform, entityInfo.variableDefs.Values.ToList());
+
+                foreach (var tagDef in entityInfo.tagDefs.Values)
+                {
+                    var tagTransformName = $"{tagDef.name} (Tag)";
+
+                    var tagTransform = metadataTransform.Find(tagTransformName);
+                    if (tagTransform == null)
+                    {
+                        tagTransform = new GameObject(tagTransformName).transform;
+                    }
+
+                    tagTransform.SetParent(metadataTransform, worldPositionStays: false);
+
+                    // Remove any preexisting tag component.
+                    var tagComponent = tagTransform.gameObject.GetComponent<SpriterTag>();
+                    if (tagComponent != null)
+                    {
+                        DestroyImmediate(tagComponent);
+                    }
+
+                    // Create tag component.
+                    tagComponent = tagTransform.gameObject.AddComponent<SpriterTag>();
+
+                    tagComponent.tagName = tagDef.name;
+                }
+            }
+            else if (metadataTransform != null)
+            {   // If a metadata game object exists, remove it.
+                DestroyImmediate(metadataTransform);
+            }
+        }
+
+        private void ProcessObjectScopedMetadata(Transform parentTransform, SpriterEntityInfo.SpriterInfoBase objInfo)
+        {
+            // If this object (aka timeline, which may also be an event) has any metadata (just variables in the case of
+            // an object/timeline/event) then create the neccessary hierarchy.  The hierarchy will look like the
+            // following:
+            //
+            //   ...
+            //   └── object_name (parentTransform)
+            //       └── object_name metadata
+            //           └── object_varname1 (String variable)
+            //           └── object_varname2 (Float variable)
+
+            string metadataGameObjectName = $"{parentTransform.name} metadata";
+            var metadataTransform = parentTransform.Find(metadataGameObjectName);
+
+            if (objInfo.HasVariables)
+            {
+                if (metadataTransform == null)
+                {
+                    metadataTransform = new GameObject(metadataGameObjectName).transform;
+                }
+
+                metadataTransform.SetParent(parentTransform, worldPositionStays: false);
+
+                BuildSpriterVariableTransforms(metadataTransform, objInfo.variableDefs.Values.ToList());
+            }
+            else if (metadataTransform != null)
+            {   // If a metadata game object exists, remove it.
+                DestroyImmediate(metadataTransform);
+            }
+        }
+
+        private void ProcessEntityEvents(Transform parentTransform, SpriterEntityInfo entityInfo)
+        {
+            // If this entity has any events then create the neccessary hierarchy.
+            // The hierarchy will look like the following:
+            //
+            //   entity_name
+            //   └── entity_name events
+            //       └── fire weapon (Event)
+            //       └── event_with_metadata (Event)
+            //           └── event_with_metadata metadata
+            //               └── event_varname1 (Float variable)
+            //
+            // Note that ProcessObjectScopedMetadata() will handle creation of the metadata game objects.
+            //
+            // There will also be a EventController added to the root of the prefab.
+
+            string eventsGameObjectName = $"{parentTransform.name} events";
+            var eventsTransform = parentTransform.Find(eventsGameObjectName);
+
+            var allEvents = entityInfo.objectInfo.Values.Where(o => o.type == ObjectType.spriterEvent).ToList();
+
+            var eventControllerComponent = parentTransform.GetComponent<EventController>();
+
+            if (allEvents.Count > 0)
+            {
+                if (eventsTransform == null)
+                {
+                    eventsTransform = new GameObject(eventsGameObjectName).transform;
+                }
+
+                eventsTransform.SetParent(parentTransform, worldPositionStays: false);
+
+                foreach (var eventInfo in allEvents)
+                {
+                    var thisEventTransformName = $"{eventInfo.name} event";
+
+                    var thisEventTransform = eventsTransform.Find(thisEventTransformName);
+                    if (thisEventTransform == null)
+                    {
+                        thisEventTransform = new GameObject(thisEventTransformName).transform;
+                    }
+
+                    thisEventTransform.SetParent(eventsTransform, worldPositionStays: false);
+
+                    // Remove any preexisting SpriterEventListener component.
+                    var spriterEventListenerComponent = thisEventTransform.gameObject.GetComponent<SpriterEventListener>();
+                    if (spriterEventListenerComponent != null)
+                    {
+                        DestroyImmediate(spriterEventListenerComponent);
+                    }
+
+                    // Create SpriterEventListener component.
+                    spriterEventListenerComponent = thisEventTransform.gameObject.AddComponent<SpriterEventListener>();
+
+                    spriterEventListenerComponent._eventName = eventInfo.name;
+
+                    ProcessObjectScopedMetadata(thisEventTransform, eventInfo);
+                }
+
+                // If an EventController component doesn't exist on the parent (which is assumed to be the root) then create one.
+                if (eventControllerComponent == null)
+                {
+                    eventControllerComponent = parentTransform.AddComponent<EventController>();
+                }
+            }
+            else if (eventsTransform != null)
+            {
+                // If an events game object exists, remove it.
+                DestroyImmediate(eventsTransform);
+
+                // If an EventController component exists on the parent (which is assumed to be the root) then remove it.
+                if (eventControllerComponent != null)
+                {
+                    DestroyImmediate(eventControllerComponent);
+                }
+
+            }
+        }
+
+        private void ProcessEntitySounds(Transform parentTransform, SpriterEntityInfo entityInfo)
+        {   // All of the sound-related info. will go into a SoundController component at the root of the prefab.
+            var soundController = parentTransform.GetComponent<SoundController>();
+
+            if (soundController != null)
+            {
+                DestroyImmediate(soundController);
+            }
+
+            soundController = parentTransform.AddComponent<SoundController>();
+
+            foreach (var soundItem in entityInfo.soundItems)
+            {
+                soundController.soundItems.Add(soundItem);
+            }
         }
 
         private void FinalizeVirtualParentProcessing(SpriterEntityInfo entityInfo, Dictionary<string, Transform> transforms)
@@ -479,6 +766,8 @@ namespace Spriter2UnityDX.Prefabs
                         child.localPosition = new Vector3(spatialInfo.x, spatialInfo.y, 0f);
                         child.localRotation = Quaternion.Euler(0, 0, spatialInfo.angle);
                         child.localScale = new Vector3(spatialInfo.scale_x, spatialInfo.scale_y, 1f);
+
+                        ProcessObjectScopedMetadata(child, spriterBoneInfo);
                     }
                     else
                     {
@@ -565,6 +854,8 @@ namespace Spriter2UnityDX.Prefabs
                 child.localEulerAngles = new Vector3(0f, 0f, spriteInfo.angle);
                 child.localScale = new Vector3(spriteInfo.scale_x, spriteInfo.scale_y, 1f);
 
+                ProcessObjectScopedMetadata(child, spriterObjectInfo);
+
                 // Get or create a Sorting Order Updater.  If a pivot controller was created then it must be on the
                 // same game object.
                 child.GetOrAddComponent<SortingOrderUpdater>();
@@ -649,6 +940,8 @@ namespace Spriter2UnityDX.Prefabs
                 child.localPosition = new Vector3(pointInfo.x, pointInfo.y, 0f);
                 child.localEulerAngles = new Vector3(0f, 0f, pointInfo.angle);
                 child.localScale = new Vector3(pointInfo.scale_x, pointInfo.scale_y, 1f);
+
+                ProcessObjectScopedMetadata(child, spriterObjectInfo);
             }
         }
 

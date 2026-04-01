@@ -20,7 +20,7 @@ namespace Spriter2UnityDX.Importing
     {   // Master class that holds all the other data
         [XmlElement("folder")] public List<Folder> folders = new List<Folder>(); // <folder> tags
         [XmlElement("entity")] public List<Entity> entities = new List<Entity>(); // <entity> tags
-        [XmlArray("tag_list"), XmlArrayItem("i")] public List<SpriterTag> tags = new List<SpriterTag>();
+        [XmlArray("tag_list"), XmlArrayItem("i")] public List<SpriterTagListItem> tags = new List<SpriterTagListItem>();
     }
 
     public class Folder : ScmlElement
@@ -57,7 +57,7 @@ namespace Spriter2UnityDX.Importing
         [XmlElement("obj_info")] public List<SpriterObjectInfo> objectInfos = new List<SpriterObjectInfo>();
         [XmlElement("character_map")] public List<CharacterMap> characterMaps = new List<CharacterMap>(); // <character_map> tags
         [XmlElement("animation")] public List<Animation> animations = new List<Animation>(); // <animation> tags
-        [XmlArray("var_defs"), XmlArrayItem("i")] public List<SpriterVarDef> variables = new List<SpriterVarDef>();
+        [XmlArray("var_defs"), XmlArrayItem("i")] public List<SpriterVarDef> variableDefs = new List<SpriterVarDef>();
     }
 
     public class SpriterObjectInfo : ScmlElement
@@ -71,7 +71,16 @@ namespace Spriter2UnityDX.Importing
         [XmlAttribute("pivot_x")] public float pivot_x;
         [XmlAttribute("pivot_y")] public float pivot_y;
 
-        [XmlArray("var_defs"), XmlArrayItem("i")] public List<SpriterVarDef> variables = new List<SpriterVarDef>();
+        [XmlArray("var_defs"), XmlArrayItem("i")] public List<SpriterVarDef> variableDefs = new List<SpriterVarDef>();
+    }
+
+    public class Eventline : ScmlElement
+    {
+        [XmlAttribute] public string name { get; set; }
+        [XmlAttribute] public int obj { get; set; } // ! Not sure what this is for.
+
+        [XmlElement("key")] public List<SpriterKey> keys = new List<SpriterKey>();
+        [XmlElement("meta")] public SpriterMeta metadata;
     }
 
     public class SpriterMeta
@@ -87,13 +96,13 @@ namespace Spriter2UnityDX.Importing
 
         [XmlAttribute("default")] public string defaultValue;
 
-        [XmlIgnore] public SpriterVarValue variableValue; // ! May not need.
+        [XmlIgnore] public List<string> possibleStringValues = new List<string>(); // if type is String then this will be populated.
     }
 
     public class SpriterVarline : ScmlElement
     {
         [XmlAttribute] public string name { get; set; } // ! Used?
-        [XmlAttribute("def")] public int Def;
+        [XmlAttribute("def")] public int varDefId; // Id of entry in corresponding collection of SpriterVarDefs.
         [XmlElement("key")] public List<SpriterVarlineKey> keys = new List<SpriterVarlineKey>();
     }
 
@@ -126,15 +135,11 @@ namespace Spriter2UnityDX.Importing
     public class SpriterVarlineKey : SpriterKey
     {
         [XmlAttribute("val")] public string value;
-        [XmlIgnore] public SpriterVarValue variableValue; // ! May not need.
     }
 
-    public class SpriterVarValue // ! May not need.
+    public class SpriterTagListItem : ScmlElement
     {
-        public SpriterVarType type;
-        public string stringValue;
-        public float floatValue;
-        public int intValue;
+        [XmlAttribute] public string name { get; set; }
     }
 
     public class SpriterTagline
@@ -144,12 +149,11 @@ namespace Spriter2UnityDX.Importing
 
     public class SpriterTaglineKey : SpriterKey
     {
-        [XmlElement("tag")] public List<SpriterTag> tags = new List<SpriterTag>();
+        [XmlElement("tag")] public List<SpriterTagInfo> tags = new List<SpriterTagInfo>();
     }
 
-    public class SpriterTag : ScmlElement
+    public class SpriterTagInfo : ScmlElement
     {
-        [XmlAttribute] public string name { get; set; }
         [XmlAttribute("t")] public int tagId;
     }
 
@@ -163,6 +167,35 @@ namespace Spriter2UnityDX.Importing
 
         [XmlEnum("float")]
         Float
+    }
+
+    public class Soundline : ScmlElement
+    {
+        [XmlAttribute] public string name { get; set; }
+        [XmlElement("key")] public List<SoundlineKey> keys = new List<SoundlineKey>();
+    }
+
+    public class SoundlineKey : SpriterKey
+    {
+        [XmlElement("object")] public SpriterSound soundObject;
+    }
+
+    public class SpriterSound : ScmlElement
+    {
+        [XmlAttribute("folder")] public int folder;
+        [XmlAttribute("file")] public int file;
+        [XmlAttribute("trigger")] public bool trigger;
+        [XmlAttribute("panning")] public float panning;
+        [XmlAttribute("volume")] public float volume;
+
+        public SpriterSound()
+        {
+            folder = -1;
+            file = -1;
+            trigger = true;
+            panning = 0f;
+            volume = 1.0f;
+        }
     }
 
     public class CharacterMap : ScmlElement
@@ -210,6 +243,8 @@ namespace Spriter2UnityDX.Importing
         [XmlArray("mainline"), XmlArrayItem("key")]
         public List<MainLineKey> mainlineKeys = new List<MainLineKey>(); // <key> tags within a single <mainline> tag
         [XmlElement("timeline")] public List<TimeLine> timelines = new List<TimeLine>(); // <timeline> tags
+        [XmlElement("eventline")] public List<Eventline> eventlines = new List<Eventline>();
+        [XmlElement("soundline")] public List<Soundline> soundlines = new List<Soundline>();
         [XmlElement("meta")] public SpriterMeta metadata;
     }
 
@@ -259,7 +294,8 @@ namespace Spriter2UnityDX.Importing
         point,
         sound,
         entity,
-        variable
+        variable,
+        [XmlEnum("event")] spriterEvent // Did older Spriter files have this?  Seems to be used only for <obj_info> tags.
     }
 
     public class TimeLine : ScmlElement
