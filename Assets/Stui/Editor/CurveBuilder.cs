@@ -317,6 +317,99 @@ namespace Stui
             }
         }
 
+        public static void SplitCurve(AnimationCurve sourceCurve, float splitTime, out AnimationCurve leftCurve, out AnimationCurve rightCurve)
+        {
+            float value = sourceCurve.Evaluate(splitTime);
+
+            // Compute tangents
+            const float eps = 1e-4f;
+            float prevValue = sourceCurve.Evaluate(splitTime - eps);
+            float nextValue = sourceCurve.Evaluate(splitTime + eps);
+
+            float tangent = (nextValue - prevValue) / (2f * eps);
+
+            // Create a key at the split time with correct tangents
+            Keyframe splitKey = new Keyframe(splitTime, value, tangent, tangent);
+
+            // Build a temporary curve including the split key
+            AnimationCurve tempCurve = new AnimationCurve(sourceCurve.keys);
+            tempCurve.AddKey(splitKey);
+
+            leftCurve = new AnimationCurve();
+            rightCurve = new AnimationCurve();
+
+            foreach (var keyFrame in tempCurve.keys)
+            {
+                if (Mathf.Approximately(keyFrame.time, splitTime))
+                {
+                    leftCurve.AddKey(keyFrame);
+                    rightCurve.AddKey(keyFrame);
+                }
+                else if (keyFrame.time < splitTime)
+                {
+                    leftCurve.AddKey(keyFrame);
+                }
+                else
+                {
+                    rightCurve.AddKey(keyFrame);
+                }
+            }
+        }
+
+        public static void RemoveRedundantKeys(AnimationCurve curve)
+        {
+            if (curve == null)
+            {
+                return;
+            }
+
+            var keys = curve.keys;
+            if (keys.Length < 3)
+            {
+                return;
+            }
+
+            // We build a list of indices to remove to avoid modifying while iterating.
+            List<int> removeIndices = null;
+
+            for (int i = 1; i < keys.Length - 1; i++)
+            {
+                var prev = keys[i - 1];
+                var curr = keys[i];
+                var next = keys[i + 1];
+
+                // Must match previous and next to be redundant.
+                if (Mathf.Approximately(prev.value, curr.value) &&
+                    Mathf.Approximately(curr.value, next.value))
+                {
+                    // Tangents must be flat or constant.
+                    bool flat =
+                        Mathf.Approximately(curr.inTangent, 0f) &&
+                        Mathf.Approximately(curr.outTangent, 0f);
+
+                    bool isStep =
+                        float.IsPositiveInfinity(curr.inTangent) &&
+                        float.IsPositiveInfinity(curr.outTangent);
+
+                    if (flat || isStep)
+                    {
+                        // Safe to remove.
+                        removeIndices ??= new List<int>();
+                        removeIndices.Add(i);
+                    }
+                }
+            }
+
+            if (removeIndices != null)
+            {
+                // Remove from end to start so indices stay valid.
+                for (int i = removeIndices.Count - 1; i >= 0; i--)
+                {
+                    curve.RemoveKey(removeIndices[i]);
+                }
+            }
+        }
+
         public static class CurveFitter
         {
             /// <summary>

@@ -282,12 +282,11 @@ namespace Stui.Importing
         [XmlAttribute("parent")] public int parentRefId { get; set; } // -1==no parent - uses ScmlObject spatialInfo as parentInfo
         [XmlAttribute("timeline")] public int timelineId { get; set; }
         [XmlAttribute("key")] public int timelineKeyId { get; set; }
-        private float z;
-        [XmlAttribute]
-        public float z_index
-        { //Translate Sprite's Z-index in something we can use in Unity
-            get { return z; }               //I choose to use position_z instead of order in layer because there are just potentially way too many
-            set { z = value * -0.001f; }    //body parts to work with. This way the order in layer is reserved for entire Spriter entities
+        [XmlAttribute] public int z_index;
+
+        public static int ZIndexToSortingOrder(float zIndex)
+        {
+            return Mathf.RoundToInt(100 * zIndex);
         }
     }
 
@@ -449,14 +448,6 @@ namespace Stui.Importing
         private float trueScaleY;
 
         [XmlAttribute] public float a { get; set; } // Alpha
-
-        public float z_index { get; set;  } // This is the value from the mainlineKey.objectInfo or mainlineKey.boneInfo.
-        public int SortingOrder { get { return ZIndexToSortingOrder(z_index); } }
-
-        public static int ZIndexToSortingOrder(float zIndex)
-        {
-            return Mathf.RoundToInt(-10000f * zIndex); // If you change this then change SortingOrderUpdater also.
-        }
 
         public bool processed = false;
 

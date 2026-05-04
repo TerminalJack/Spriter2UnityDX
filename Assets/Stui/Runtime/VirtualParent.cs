@@ -28,10 +28,10 @@ namespace Stui
         private int _lastParentIndex = -1;
 
         void OnEnable() => ApplyVirtualParent();
-        void OnValidate() => ApplyVirtualParent();
-        void OnDidApplyAnimationProperties() => ApplyVirtualParent();
 
 #if UNITY_EDITOR
+        void OnValidate() => ApplyVirtualParent();
+        void OnDidApplyAnimationProperties() => ApplyVirtualParent();
         void Update() { if (!Application.isPlaying) ApplyVirtualParent(); }
 #endif
 

@@ -16,6 +16,7 @@ using UnityEditor;
 namespace Stui.Extras
 {
     [RequireComponent(typeof(Animator))]
+    [DisallowMultipleComponent]
     public class ClipRunner : MonoBehaviour
     {
         public enum ClipPlayOrder

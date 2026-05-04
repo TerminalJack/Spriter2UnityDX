@@ -32,9 +32,9 @@ namespace Stui
 		private Animator animator;
 
         private void Start() => SelectSprite();
-        private void OnDidApplyAnimationProperties() => SelectSprite();
 
 #if UNITY_EDITOR
+        private void OnDidApplyAnimationProperties() => SelectSprite();
         private void Update() { if (!Application.isPlaying) SelectSprite(); }
 #endif
 

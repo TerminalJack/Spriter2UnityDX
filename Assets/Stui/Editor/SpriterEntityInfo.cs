@@ -205,10 +205,6 @@ namespace Stui.EntityInfo
             PreprocessObjectParents(entity);
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, preprocessing z-indices";
-            PreprocessZIndices(entity);
-
-            if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, preprocessing pivots and parents";
             PreprocessPivotsAndParents(entity);
         }
@@ -1510,64 +1506,6 @@ namespace Stui.EntityInfo
                 Log($"    object name: '{info.ObjectName}', parent name(s) are: {parentNamesString}");
 
                 objectInfo[info.ObjectName].parentBoneNames.AddRange(info.ParentBoneNames);
-            }
-        }
-
-        private void PreprocessZIndices(Entity entity)
-        {
-            // Populate all of the timeline key.infos with the z_index.  We'll do this
-            // both for bones and sprites but it is only needed for sprites.
-
-            // Flatten every key with its z_index
-            var flatKeyParents = (
-                from anim in entity.animations
-                from tl in anim.timelines
-                from tlKey in tl.keys
-
-                let currentTime = tlKey.time_s
-                let mlk = anim.mainlineKeys
-                    .OrderBy(mk => mk.time_s)
-                    .LastOrDefault(mk => mk.time_s <= currentTime)
-
-                let isBoneTl = tl.objectType == ObjectType.bone
-                let refs = isBoneTl ? mlk?.boneRefs : mlk?.objectRefs
-                let myRef = refs?.FirstOrDefault(r => r.timelineId == tl.id)
-
-                let zIndex = myRef != null ? myRef.z_index : 0
-
-                select new
-                {
-                    animation = anim,
-                    timeline = tl,
-                    keyEntry = tlKey,
-                    zIndex
-                }
-            ).ToList();
-
-            // Group them by animation and timeline.
-            var groupedKeyZIndex = flatKeyParents
-                .GroupBy(entry => new { entry.animation, entry.timeline })
-                .Select(g => new
-                {
-                    g.Key.animation,
-                    g.Key.timeline,
-                    keys = g.Select(x => new { x.keyEntry, x.zIndex }).ToList()
-                })
-                .ToList();
-
-            foreach (var timelineGroup in groupedKeyZIndex)
-            {
-                var anim = timelineGroup.animation;
-                var timeline = timelineGroup.timeline;
-                var keyInfos = timelineGroup.keys;  // List of { keyEntry, parentName }
-
-                foreach (var keyInfo in keyInfos)
-                {
-                    Log($"Z-indices for entity: {entity.name}, animation: {anim.name}, timeline: {timeline.name}, " +
-                        $"time: {keyInfo.keyEntry.time_s}, z_index: {keyInfo.zIndex}");
-
-                    keyInfo.keyEntry.info.z_index = keyInfo.zIndex;
-                }
             }
         }
 

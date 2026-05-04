@@ -40,11 +40,8 @@ namespace Stui
             GatherReferences();
             ApplyPivot();
         }
-#endif
 
         void OnDidApplyAnimationProperties() => ApplyPivot();
-
-#if UNITY_EDITOR
         void Update() { if (!Application.isPlaying) ApplyPivot(); }
 #endif
 

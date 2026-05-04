@@ -91,7 +91,7 @@ namespace Stui.Animations
             return null;
         }
 
-        public IEnumerator Build(Animation animation, IDictionary<int, Timeline> timeLines, IBuildTaskContext buildCtx)
+        public IEnumerator Build(Animation animation, IDictionary<int, Timeline> timelines, IBuildTaskContext buildCtx)
         {
             var clip = new AnimationClip
             {
@@ -116,7 +116,7 @@ namespace Stui.Animations
 
                     if (bref.parentRefId < 0 || parentTimelines.ContainsKey(bref.parentRefId))
                     {
-                        var timeLine = timeLines[bref.timelineId];
+                        var timeLine = timelines[bref.timelineId];
                         parentTimelines[bref.id] = new List<TimelineKey>(timeLine.keys);
                         Transform bone;
 
@@ -137,35 +137,35 @@ namespace Stui.Animations
 
                 foreach (var objRef in key.objectRefs)
                 {
-                    var timeLine = timeLines[objRef.timelineId];
+                    var timeline = timelines[objRef.timelineId];
 
-                    if (timeLine.objectType == ObjectType.sprite)
+                    if (timeline.objectType == ObjectType.sprite)
                     {
                         Transform spriteTransform;
 
-                        if (pendingTransforms.TryGetValue(timeLine.name, out spriteTransform))
+                        if (pendingTransforms.TryGetValue(timeline.name, out spriteTransform))
                         {
                             if (buildCtx.IsCanceled) { yield break; }
-                            yield return $"{buildCtx.MessagePrefix}, sprite: '{timeLine.name}', creating animation curves";
+                            yield return $"{buildCtx.MessagePrefix}, sprite: '{timeline.name}', creating animation curves";
 
-                            var defaultZ = objRef.z_index;
+                            SetCurves(spriteTransform, DefaultSprites[timeline.name], timeline, clip, animation);
+                            CreateSpriteVisibilityCurve(spriteTransform, animation.mainlineKeys, timeline, clip);
+                            CreateSortingOrderCurve(spriteTransform, animation.mainlineKeys, timeline, clip);
 
-                            SetCurves(spriteTransform, DefaultSprites[timeLine.name], timeLine, clip, animation, ref defaultZ);
-                            SetAdditionalCurves(spriteTransform, animation.mainlineKeys, timeLine, clip, defaultZ);
-                            pendingTransforms.Remove(timeLine.name);
+                            pendingTransforms.Remove(timeline.name);
                         }
                     }
-                    else if (timeLine.objectType == ObjectType.point)
+                    else if (timeline.objectType == ObjectType.point)
                     {
                         Transform actionPointTransform;
 
-                        if (pendingTransforms.TryGetValue(timeLine.name, out actionPointTransform))
+                        if (pendingTransforms.TryGetValue(timeline.name, out actionPointTransform))
                         {
                             if (buildCtx.IsCanceled) { yield break; }
-                            yield return $"{buildCtx.MessagePrefix}, action point: '{timeLine.name}', creating animation curves";
+                            yield return $"{buildCtx.MessagePrefix}, action point: '{timeline.name}', creating animation curves";
 
-                            SetCurves(actionPointTransform, DefaultActionPoints[timeLine.name], timeLine, clip, animation);
-                            pendingTransforms.Remove(timeLine.name);
+                            SetCurves(actionPointTransform, DefaultActionPoints[timeline.name], timeline, clip, animation);
+                            pendingTransforms.Remove(timeline.name);
                         }
                     }
                 }
@@ -462,6 +462,7 @@ namespace Stui.Animations
             }
 
             CurveBuilder.ConcatenateCurvesInto(tagCurve, allCurves.ToArray());
+            CurveBuilder.RemoveRedundantKeys(tagCurve);
         }
 
         private void CreateTagCurves(Animation animation, AnimationClip clip, List<TagInstanceInfo> tagInstanceInfos, Metadata metadata)
@@ -581,6 +582,7 @@ namespace Stui.Animations
             }
 
             CurveBuilder.ConcatenateCurvesInto(varCurve, allCurves.ToArray());
+            CurveBuilder.RemoveRedundantKeys(varCurve);
         }
 
         private EditorCurveBinding GetSpriterVarComponentBinding<T>(GameObject gameObject, string propertyName) where T : MonoBehaviour
@@ -765,11 +767,9 @@ namespace Stui.Animations
                         AnimationUtility.SetEditorCurve(clip, positionYBinding, kvPair.Value);
                         break;
 
-                    case ChangedValues.SpriteSortOrder:
-                        SetKeys<SpatialInfo>(kvPair.Value, timeLine, x => x.z_index, animation, mainlineBlending: false, CurveType.instant); // Creates an instant curve.
-                        var spriteSortOrderBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.z");
-                        AnimationUtility.SetEditorCurve(clip, spriteSortOrderBinding, kvPair.Value);
-                        defaultZ = inf; // ! [Still needed?] Lets the next method know this value has been set
+                    case ChangedValues.PositionZ:
+                        var positionZBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.z");
+                        AnimationUtility.SetEditorCurve(clip, positionZBinding, CurveBuilder.CreateLinearCurve(0f, animation.length, 0f, 0f));
                         break;
 
                     case ChangedValues.RotationZ:
@@ -1016,97 +1016,136 @@ namespace Stui.Animations
             return currentAngle + delta;
         }
 
-        // This is for curves that are tracked slightly differently from regular curves: sprite renderer enabled curve and Z-index curve
-        private void SetAdditionalCurves(Transform child, List<MainlineKey> keys, Timeline timeLine, AnimationClip clip, float defaultZ)
+        private void CreateSpriteVisibilityCurve(Transform child, List<MainlineKey> mlks, Timeline timeline, AnimationClip clip)
         {
-            var positionChanged = false;
-            var kfsZ = new List<Keyframe>();
-            var changedZ = false;
-
-            // If the sprite isn't present in the mainline then disable the sprite renderer
-
-            // The SpriteVisibility component is on this game object or a child.
             var visibilityComponent = child.GetComponentInChildren<SpriteVisibility>(includeInactive: true);
-            var rendererIsVisible = visibilityComponent.isVisible;
+            var visibilityBindPoseValue = visibilityComponent.isVisible;
 
-            var kfsEnabled = new List<Keyframe>();
+            var visibilityInfos =
+            (
+                from mlk in mlks
 
-            foreach (var key in keys)
-            {   // If it is present, enable the GameObject if it isn't already enabled
-                var mref = key.objectRefs.Find(x => x.timelineId == timeLine.id);
-                if (mref != null)
+                // Find the timeline key (if any) that this mainline key references
+                let tlk = (
+                    from k in timeline.keys
+                    where mlk.objectRefs.Any(or =>
+                        or.timelineId == timeline.id &&
+                        or.timelineKeyId == k.id)
+                    select k
+                ).FirstOrDefault()
+
+                select new
                 {
-                    if (defaultZ == inf)
-                    {
-                        defaultZ = mref.z_index;
-                        positionChanged = true;
-                    }
-
-                    if (!changedZ && mref.z_index != defaultZ)
-                    {
-                        changedZ = true;
-                        if (key.time_s > 0)
-                        {
-                            kfsZ.Add(new Keyframe(0f, defaultZ, inf, inf));
-                        }
-                    }
-
-                    if (changedZ)
-                    {
-                        kfsZ.Add(new Keyframe(TweakTime(key.time_s), mref.z_index, inf, inf));
-                    }
-
-                    if (!rendererIsVisible)
-                    {
-                        if (kfsEnabled.Count <= 0 && key.time_s > 0)
-                        {
-                            kfsEnabled.Add(new Keyframe(0f, 0f, inf, inf));
-                        }
-
-                        kfsEnabled.Add(new Keyframe(TweakTime(key.time_s), 1f, inf, inf));
-                        rendererIsVisible = true;
-                    }
+                    mlk.time_s,
+                    isVisible = tlk != null // Is sprite visible at time_s?
                 }
-                else if (rendererIsVisible)
-                {
-                    if (kfsEnabled.Count <= 0 && key.time_s > 0)
-                    {
-                        kfsEnabled.Add(new Keyframe(0f, 1f, inf, inf));
-                    }
+            )
+            .ToList();
 
-                    kfsEnabled.Add(new Keyframe(TweakTime(key.time_s), 0f, inf, inf));
-                    rendererIsVisible = false;
-                }
-            }
+            // There will be one visibilityInfos element for each key in mainline keys.
 
-            // ! Is this needed still?
-            // Only add these curves if there is actually a mutation
-            if (kfsZ.Count > 0)
+            bool isVisibleForAllKeys = visibilityInfos.Exists(vi => !vi.isVisible) == false;
+            bool isNotVisibleForAllKeys = visibilityInfos.Exists(vi => vi.isVisible) == false;
+            bool isMixedVisibility = !isVisibleForAllKeys && !isNotVisibleForAllKeys;
+
+            // A curve needs to be created if the visibility changes or if it doesn't but the visibility is different
+            // than the bind pose value.
+            bool needCurve = isMixedVisibility || (visibilityBindPoseValue ? isNotVisibleForAllKeys : isVisibleForAllKeys);
+
+            if (needCurve)
             {
-                var childPath = GetPathToChild(child);
-                var positionZBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.z");
+                var visibilityKeyFrames = new List<Keyframe>();
 
-                AnimationUtility.SetEditorCurve(clip, positionZBinding, new AnimationCurve(kfsZ.ToArray()));
-
-                if (!positionChanged)
+                for (int i = 0; i < visibilityInfos.Count; ++i)
                 {
-                    var info = timeLine.keys[0].info; //If these curves don't actually exist, add some empty ones
-
-                    var positionXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.x");
-                    AnimationUtility.SetEditorCurve(clip, positionXBinding, new AnimationCurve(new Keyframe(0f, info.x)));
-
-                    var positionYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.y");
-                    AnimationUtility.SetEditorCurve(clip, positionYBinding, new AnimationCurve(new Keyframe(0f, info.y)));
+                    // Filter-out redundant keyframes.
+                    if (i == 0 || visibilityInfos[i].isVisible != visibilityInfos[i - 1].isVisible)
+                    {
+                        visibilityKeyFrames.Add(new Keyframe(TweakTime(visibilityInfos[i].time_s),
+                            visibilityInfos[i].isVisible ? 1f : 0f, inf, inf));
+                    }
                 }
-            }
 
-            if (kfsEnabled.Count > 0)
-            {
+                var curve = new AnimationCurve(visibilityKeyFrames.ToArray());
+
                 var visibilityComponentTransformPath = GetPathToChild(visibilityComponent.transform);
                 var binding = EditorCurveBinding.FloatCurve(visibilityComponentTransformPath, typeof(SpriteVisibility),
                     nameof(SpriteVisibility.isVisible));
 
-                AnimationUtility.SetEditorCurve(clip, binding, new AnimationCurve(kfsEnabled.ToArray()));
+                AnimationUtility.SetEditorCurve(clip, binding, curve);
+            }
+        }
+
+        private class SortingOrderInfo
+        {
+            public float time_s { get; set; }
+            public bool isVisible { get; set; }
+            public int sortingOrder { get; set; }
+        }
+
+        private void CreateSortingOrderCurve(Transform child, List<MainlineKey> mlks, Timeline timeline, AnimationClip clip)
+        {
+
+            var rendererComponent = child.GetComponentInChildren<SpriteRenderer>(includeInactive: true);
+            var sortOrderBindPoseValue = rendererComponent.sortingOrder;
+
+            var sortingOrderInfos =
+            (
+                from mlk in mlks
+
+                // Find the timeline key (if any) that this mainline key references
+                let tlk =
+                    (from k in timeline.keys
+                    where mlk.objectRefs.Any(or =>
+                        or.timelineId == timeline.id &&
+                        or.timelineKeyId == k.id)
+                    select k
+                    ).FirstOrDefault()
+
+                // Find the matching objectRef (if any) so we can get z_index
+                let oref =
+                    mlk.objectRefs.FirstOrDefault(or =>
+                        or.timelineId == timeline.id &&
+                        or.timelineKeyId == tlk?.id)
+
+                select new SortingOrderInfo
+                {
+                    time_s = mlk.time_s,
+                    isVisible = tlk != null,
+                    // Note: sortingOrder doesn't apply if the sprite isn't visible.
+                    sortingOrder = tlk != null && oref != null ? Ref.ZIndexToSortingOrder(oref.z_index) : -1
+                }
+            )
+            .ToList();
+
+            // Remove any elements where the sprite isn't visible since a key will not be needed in that case.
+            sortingOrderInfos.RemoveAll(i => !i.isVisible);
+
+            bool needCurve = sortingOrderInfos.Exists(i => i.sortingOrder != sortOrderBindPoseValue);
+
+            if (needCurve)
+            {
+                var sortingOrderFrames = new List<Keyframe>();
+
+                // Make sure the first frame gets keyed at time 0.
+                sortingOrderInfos[0].time_s = 0f;
+
+                for (int i = 0; i < sortingOrderInfos.Count; ++i)
+                {
+                    // Filter-out redundant keyframes.
+                    if (i == 0 || sortingOrderInfos[i].sortingOrder != sortingOrderInfos[i - 1].sortingOrder)
+                    {
+                        sortingOrderFrames.Add(new Keyframe(TweakTime(sortingOrderInfos[i].time_s),
+                            sortingOrderInfos[i].sortingOrder, inf, inf));
+                    }
+                }
+
+                var curve = new AnimationCurve(sortingOrderFrames.ToArray());
+
+                var rendererComponentTransformPath = GetPathToChild(rendererComponent.transform);
+                var binding = EditorCurveBinding.FloatCurve(rendererComponentTransformPath, typeof(SpriteRenderer), "m_SortingOrder");
+
+                AnimationUtility.SetEditorCurve(clip, binding, curve);
             }
         }
 
@@ -1130,45 +1169,6 @@ namespace Stui.Animations
             }
         }
 
-        private void SplitCurve(AnimationCurve sourceCurve, float splitTime, out AnimationCurve leftCurve, out AnimationCurve rightCurve)
-        {
-            float value = sourceCurve.Evaluate(splitTime);
-
-            // Compute tangents
-            const float eps = 1e-4f;
-            float prevValue = sourceCurve.Evaluate(splitTime - eps);
-            float nextValue = sourceCurve.Evaluate(splitTime + eps);
-
-            float tangent = (nextValue - prevValue) / (2f * eps);
-
-            // Create a key at the split time with correct tangents
-            Keyframe splitKey = new Keyframe(splitTime, value, tangent, tangent);
-
-            // Build a temporary curve including the split key
-            AnimationCurve tempCurve = new AnimationCurve(sourceCurve.keys);
-            tempCurve.AddKey(splitKey);
-
-            leftCurve = new AnimationCurve();
-            rightCurve = new AnimationCurve();
-
-            foreach (var keyFrame in tempCurve.keys)
-            {
-                if (Mathf.Approximately(keyFrame.time, splitTime))
-                {
-                    leftCurve.AddKey(keyFrame);
-                    rightCurve.AddKey(keyFrame);
-                }
-                else if (keyFrame.time < splitTime)
-                {
-                    leftCurve.AddKey(keyFrame);
-                }
-                else
-                {
-                    rightCurve.AddKey(keyFrame);
-                }
-            }
-        }
-
         private void GenerateWrapAroundCurves<T>(Animation animation, Timeline timeline, Func<T, float> infoValue,
             out AnimationCurve beginningCurve, out AnimationCurve endingCurve) where T : SpatialInfo
         {
@@ -1187,7 +1187,7 @@ namespace Stui.Animations
             AnimationCurve leftSideCurve;
             AnimationCurve rightSideCurve;
 
-            SplitCurve(joiningCurve, animation.length, out leftSideCurve, out rightSideCurve);
+            CurveBuilder.SplitCurve(joiningCurve, animation.length, out leftSideCurve, out rightSideCurve);
 
             AnimationCurve startCurve = new AnimationCurve();
 
@@ -1260,6 +1260,7 @@ namespace Stui.Animations
             }
 
             CurveBuilder.ConcatenateCurvesInto(curve, allCurves.ToArray());
+            CurveBuilder.RemoveRedundantKeys(curve);
         }
 
         private float GetFinalFrameInferredKeyValue<T>(Timeline timeLine, Func<T, float> infoValue,
@@ -1384,6 +1385,7 @@ namespace Stui.Animations
             }
 
             CurveBuilder.ConcatenateCurvesInto(curve, allCurves.ToArray());
+            CurveBuilder.RemoveRedundantKeys(curve);
         }
 
         private void SetVirtualParentKeys(AnimationCurve curve, Timeline timeLine, Func<SpatialInfo, string> infoValue, Animation animation, string childName)
@@ -1448,6 +1450,7 @@ namespace Stui.Animations
             }
 
             CurveBuilder.ConcatenateCurvesInto(curve, allCurves.ToArray());
+            CurveBuilder.RemoveRedundantKeys(curve);
         }
 
         private AnimationCurve CreateCurve(CurveType curveType, float startTime, float endTime,
@@ -1523,6 +1526,7 @@ namespace Stui.Animations
             }
 
             CurveBuilder.ConcatenateCurvesInto(curve, allCurves.ToArray());
+            CurveBuilder.RemoveRedundantKeys(curve);
         }
 
         void SetSpriteSwapKeys(Transform child, Timeline timeLine, AnimationClip clip, Animation animation)
@@ -1613,6 +1617,7 @@ namespace Stui.Animations
             Sprite,
             PositionX,
             PositionY,
+            PositionZ,
             RotationZ,
             ScaleX,
             ScaleY,
@@ -1620,8 +1625,7 @@ namespace Stui.Animations
             Alpha,
             PivotX,
             PivotY,
-            VirtualParent,
-            SpriteSortOrder
+            VirtualParent
         }
 
         private IDictionary<ChangedValues, AnimationCurve> GetCurves(Animation animation, Timeline timeLine,
@@ -1662,12 +1666,11 @@ namespace Stui.Animations
                     info.Process(parentInfo);
                 }
 
-                if ((!rv.ContainsKey(ChangedValues.PositionX) && (defaultInfo.x != info.x || defaultInfo.y != info.y)) ||
-                    (!rv.ContainsKey(ChangedValues.SpriteSortOrder) && defaultInfo.z_index != info.z_index))
+                if (!rv.ContainsKey(ChangedValues.PositionX) && (defaultInfo.x != info.x || defaultInfo.y != info.y))
                 {
-                    rv[ChangedValues.PositionX] = new AnimationCurve(); //There will be irregular behaviour if curves aren't added for all members
-                    rv[ChangedValues.PositionY] = new AnimationCurve(); //in a group, so when one is set, the others have to be set as well
-                    rv[ChangedValues.SpriteSortOrder] = new AnimationCurve();
+                    rv[ChangedValues.PositionX] = new AnimationCurve(); // There will be irregular behaviour if curves aren't added for all members
+                    rv[ChangedValues.PositionY] = new AnimationCurve(); // in a group, so when one is set, the others have to be set as well
+                    rv[ChangedValues.PositionZ] = new AnimationCurve(); // Position.z is alway 0 and is created only when x and/or y is.
                 }
 
                 if (!rv.ContainsKey(ChangedValues.RotationZ) && (defaultInfo.angle != info.angle))

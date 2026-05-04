@@ -230,7 +230,8 @@ namespace Stui.Prefabs
                     if (buildCtx.IsCanceled) { yield break; }
                     yield return $"{buildCtx.MessagePrefix}, mainline key time: {key.time_s}, processing sprites";
 
-                    ProcessSprites(parents, transforms, timeLines, key, defaultBones, defaultSprites, entityInfo, folders, firstAnim);
+                    ProcessSprites(parents, transforms, timeLines, key, defaultBones, defaultSprites, entityInfo,
+                        folders, firstAnim, animation.mainlineKeys);
 
                     if (buildCtx.IsCanceled) { yield break; }
                     yield return $"{buildCtx.MessagePrefix}, mainline key time: {key.time_s}, processing action points";
@@ -825,7 +826,7 @@ namespace Stui.Prefabs
         private void ProcessSprites(Dictionary<int, string> parents, Dictionary<string, Transform> transforms,
             Dictionary<int, Timeline> timeLines, MainlineKey key, Dictionary<string, SpatialInfo> defaultBones,
             Dictionary<string, SpriteInfo> defaultSprites, SpriterEntityInfo entityInfo,
-            IDictionary<int, IDictionary<int, Sprite>> folders, bool firstAnim)
+            IDictionary<int, IDictionary<int, Sprite>> folders, bool firstAnim, List<MainlineKey> mlks)
         {
             foreach (var oref in key.objectRefs)
             {
@@ -896,15 +897,11 @@ namespace Stui.Prefabs
                     DestroyImmediate(pivotController);
                 }
 
-                child.localPosition = new Vector3(spriteInfo.x, spriteInfo.y, spriteInfo.z_index); // Z-index (sprite sorting order / -10000f) is stored in z.
+                child.localPosition = new Vector3(spriteInfo.x, spriteInfo.y, 0f);
                 child.localEulerAngles = new Vector3(0f, 0f, spriteInfo.angle);
                 child.localScale = new Vector3(spriteInfo.scale_x, spriteInfo.scale_y, 1f);
 
                 ProcessObjectScopedMetadata(child, spriterObjectInfo);
-
-                // Get or create a Sorting Order Updater.  If a pivot controller was created then it must be on the
-                // same game object.
-                child.GetOrAddComponent<SortingOrderUpdater>();
 
                 // If a pivot controller is used then the sprite renderer has to go on a child game object.
                 string spriteRendererName = spriterObjectInfo.spriteRenderTransformName;
@@ -919,7 +916,7 @@ namespace Stui.Prefabs
                 var renderer = rendererTransform.GetOrAddComponent<SpriteRenderer>(); // Get or create a Sprite Renderer
 
                 renderer.sprite = folders[spriteInfo.folderId][spriteInfo.fileId];
-                renderer.sortingOrder = spriteInfo.SortingOrder;
+                renderer.sortingOrder = GetSortingOrderBindPoseValue(mlks, timeLine);
 
                 if (needsPivotController)
                 {
@@ -958,6 +955,42 @@ namespace Stui.Prefabs
                 renderer.enabled = firstAnim;
                 spriteVisibility.isVisible = firstAnim;
             }
+        }
+
+        private int GetSortingOrderBindPoseValue(List<MainlineKey> mlks, Timeline timeline)
+        {
+            var sortingOrderInfos =
+            (
+                from mlk in mlks
+
+                // Find the timeline key (if any) that this mainline key references
+                let tlk = (
+                    from k in timeline.keys
+                    where mlk.objectRefs.Any(or =>
+                        or.timelineId == timeline.id &&
+                        or.timelineKeyId == k.id)
+                    select k
+                ).FirstOrDefault()
+
+                // Find the matching objectRef (if any) so we can get z_index
+                let oref =
+                    mlk.objectRefs.FirstOrDefault(or =>
+                        or.timelineId == timeline.id &&
+                        or.timelineKeyId == tlk?.id)
+
+                select new
+                {
+                    mlk.time_s,
+                    isVisible = tlk != null,
+                    // Note: sortingOrder doesn't apply if the sprite isn't visible.
+                    sortingOrder = tlk != null && oref != null ? Ref.ZIndexToSortingOrder(oref.z_index) : -1
+                }
+            )
+            .ToList();
+
+            sortingOrderInfos.RemoveAll(i => !i.isVisible);
+
+            return sortingOrderInfos.Count > 0 ? sortingOrderInfos[0].sortingOrder : 0;
         }
 
         private void ProcessActionPoints(Dictionary<int, string> parents, Dictionary<string, Transform> transforms,

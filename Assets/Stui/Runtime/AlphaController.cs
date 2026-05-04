@@ -39,9 +39,8 @@ namespace Stui
             ApplyAlpha();
         }
 
-        void OnDidApplyAnimationProperties() => ApplyAlpha();
-
 #if UNITY_EDITOR
+        void OnDidApplyAnimationProperties() => ApplyAlpha();
         void Update() { if (!Application.isPlaying) ApplyAlpha(); }
 #endif
 
