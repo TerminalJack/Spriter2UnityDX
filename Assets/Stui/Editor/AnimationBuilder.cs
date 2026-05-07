@@ -116,17 +116,17 @@ namespace Stui.Animations
 
                     if (bref.parentRefId < 0 || parentTimelines.ContainsKey(bref.parentRefId))
                     {
-                        var timeLine = timelines[bref.timelineId];
-                        parentTimelines[bref.id] = new List<TimelineKey>(timeLine.keys);
+                        var timeline = timelines[bref.timelineId];
+                        parentTimelines[bref.id] = new List<TimelineKey>(timeline.keys);
                         Transform bone;
 
-                        if (pendingTransforms.TryGetValue(timeLine.name, out bone))
+                        if (pendingTransforms.TryGetValue(timeline.name, out bone))
                         {   //Skip it if it's already "used"
                             if (buildCtx.IsCanceled) { yield break; }
-                            yield return $"{buildCtx.MessagePrefix}, bone: '{timeLine.name}', creating animation curves";
+                            yield return $"{buildCtx.MessagePrefix}, bone: '{timeline.name}', creating animation curves";
 
-                            SetCurves(bone, DefaultBones[timeLine.name], timeLine, clip, animation);
-                            pendingTransforms.Remove(timeLine.name);
+                            SetCurves(bone, DefaultBones[timeline.name], timeline, clip, animation);
+                            pendingTransforms.Remove(timeline.name);
                         }
                     }
                     else
@@ -223,6 +223,11 @@ namespace Stui.Animations
             yield return $"{buildCtx.MessagePrefix}, creating animation curves for object-scoped variables";
 
             AddObjectScopedVariablesToClip(animation, clip);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, creating animation curve for spatial controller";
+
+            AddSpatialControllerCurveToClip(animation, clip);
 
             if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, configuring animation clip";
@@ -685,8 +690,8 @@ namespace Stui.Animations
         private void AddEventScopedTagsToClip(Animation animation, AnimationClip clip)
         {
             var allEventInfosWithTags =
-                entityInfo.objectInfo.Values
-                .Where(i => i.type == ObjectType.spriterEvent && i.HasTags);
+                entityInfo.objectInfos.Values
+                .Where(i => i.type == ObjectType.spriterEvent && i.hasTags);
 
             foreach (var info in allEventInfosWithTags)
             {
@@ -699,8 +704,8 @@ namespace Stui.Animations
         private void AddEventScopedVariablesToClip(Animation animation, AnimationClip clip)
         {
             var allEventInfosWithVars =
-                entityInfo.objectInfo.Values
-                .Where(i => i.type == ObjectType.spriterEvent && i.HasVariables);
+                entityInfo.objectInfos.Values
+                .Where(i => i.type == ObjectType.spriterEvent && i.hasVariables);
 
             foreach (var info in allEventInfosWithVars)
             {
@@ -713,9 +718,9 @@ namespace Stui.Animations
         private void AddObjectScopedTagsToClip(Animation animation, AnimationClip clip)
         {
             var allNonEventInfosWithTags =
-                entityInfo.boneInfo.Values.Cast<SpriterInfoBase>()
-                .Concat(entityInfo.objectInfo.Values)
-                .Where(i => i.type != ObjectType.spriterEvent && i.HasTags);
+                entityInfo.boneInfos.Values.Cast<SpriterInfoBase>()
+                .Concat(entityInfo.objectInfos.Values)
+                .Where(i => i.type != ObjectType.spriterEvent && i.hasTags);
 
             foreach (var info in allNonEventInfosWithTags)
             {
@@ -728,9 +733,9 @@ namespace Stui.Animations
         private void AddObjectScopedVariablesToClip(Animation animation, AnimationClip clip)
         {
             var allNonEventInfosWithVars =
-                entityInfo.boneInfo.Values.Cast<SpriterInfoBase>()
-                .Concat(entityInfo.objectInfo.Values)
-                .Where(i => i.type != ObjectType.spriterEvent && i.HasVariables);
+                entityInfo.boneInfos.Values.Cast<SpriterInfoBase>()
+                .Concat(entityInfo.objectInfos.Values)
+                .Where(i => i.type != ObjectType.spriterEvent && i.hasVariables);
 
             foreach (var info in allNonEventInfosWithVars)
             {
@@ -740,171 +745,98 @@ namespace Stui.Animations
             }
         }
 
-        private void SetCurves(Transform child, SpatialInfo defaultInfo, Timeline timeLine, AnimationClip clip, Animation animation)
+        private void AddSpatialControllerCurveToClip(Animation animation, AnimationClip clip)
         {
-            var defZ = 0f;
-            SetCurves(child, defaultInfo, timeLine, clip, animation, ref defZ);
+            if (Root.TryGetComponent<SpatialController>(out var spatialController))
+            {
+                bool animUsesSpriterScaling = !animation.usesBakedSpatialData;
+                bool useSpriterScalingBindPoseValue = spatialController.UseSpriterScaling;
+
+                if (animUsesSpriterScaling != useSpriterScalingBindPoseValue)
+                {
+                    var spatialControllerTransformPath = GetPathToChild(Root);
+
+                    var spatialControllerBinding = EditorCurveBinding.FloatCurve(spatialControllerTransformPath,
+                        typeof(SpatialController), nameof(SpatialController.UseSpriterScaling));
+
+                    float keyedValue = animUsesSpriterScaling ? 1f : 0f;
+
+                    AnimationUtility.SetEditorCurve(clip, spatialControllerBinding,
+                        CurveBuilder.CreateLinearCurve(0f, animation.length, keyedValue, keyedValue));
+                }
+            }
         }
 
-        private void SetCurves(Transform child, SpatialInfo defaultInfo, Timeline timeLine,
-            AnimationClip clip, Animation animation, ref float defaultZ)
+        private void SetCurves(Transform child, SpatialInfo defaultInfo, Timeline timeline, AnimationClip clip, Animation animation)
         {
             var childPath = GetPathToChild(child);
 
-            foreach (var kvPair in GetCurves(animation, timeLine, defaultInfo, child))
+            foreach (var kvPair in GetCurves(animation, timeline, defaultInfo, child))
             {   // Makes sure that curves are only added for properties that actually mutate in the animation
                 switch (kvPair.Key)
                 {
                     case ChangedValues.PositionX:
-                        SetKeys<SpatialInfo>(kvPair.Value, timeLine, x => x.x, animation);
-                        var positionXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.x");
-                        AnimationUtility.SetEditorCurve(clip, positionXBinding, kvPair.Value);
+                        CreatePositionXCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
                     case ChangedValues.PositionY:
-                        SetKeys<SpatialInfo>(kvPair.Value, timeLine, x => x.y, animation);
-                        var positionYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.y");
-                        AnimationUtility.SetEditorCurve(clip, positionYBinding, kvPair.Value);
+                        CreatePositionYCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
                     case ChangedValues.PositionZ:
-                        var positionZBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.z");
-                        AnimationUtility.SetEditorCurve(clip, positionZBinding, CurveBuilder.CreateLinearCurve(0f, animation.length, 0f, 0f));
+                        CreatePositionZCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
-                    case ChangedValues.RotationZ:
-                        var rotationXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "localEulerAnglesRaw.x");
-                        AnimationUtility.SetEditorCurve(clip, rotationXBinding, CurveBuilder.CreateLinearCurve(0f, animation.length, 0f, 0f));
+                    case ChangedValues.SpatialPositionX:
+                        CreateSpatialPositionXCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
+                        break;
 
-                        var rotationYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "localEulerAnglesRaw.y");
-                        AnimationUtility.SetEditorCurve(clip, rotationYBinding, CurveBuilder.CreateLinearCurve(0f, animation.length, 0f, 0f));
-
-                        bool tempFinalKeyCreated = ConvertTimelineAngles(timeLine, animation);
-
-                        SetKeys<SpatialInfo>(kvPair.Value, timeLine, x => x.angle, animation);
-
-                        if (tempFinalKeyCreated)
-                        {
-                            timeLine.keys.RemoveAt(timeLine.keys.Count - 1);
-                        }
-
-                        var rotationZBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "localEulerAnglesRaw.z");
-                        AnimationUtility.SetEditorCurve(clip, rotationZBinding, kvPair.Value);
+                    case ChangedValues.SpatialPositionY:
+                        CreateSpatialPositionYCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
                     case ChangedValues.ScaleX:
-                        SetKeys<SpatialInfo>(kvPair.Value, timeLine, x => x.scale_x, animation);
-                        var scaleXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalScale.x");
-                        AnimationUtility.SetEditorCurve(clip, scaleXBinding, kvPair.Value);
+                        CreateScaleXCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
                     case ChangedValues.ScaleY:
-                        SetKeys<SpatialInfo>(kvPair.Value, timeLine, x => x.scale_y, animation);
-                        var scaleYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalScale.y");
-                        AnimationUtility.SetEditorCurve(clip, scaleYBinding, kvPair.Value);
+                        CreateScaleYCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
                     case ChangedValues.ScaleZ:
-                        kvPair.Value.AddKey(0f, 1f);
-                        var scaleZBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalScale.z");
-                        AnimationUtility.SetEditorCurve(clip, scaleZBinding, kvPair.Value);
+                        CreateScaleZCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
+                        break;
+
+                    case ChangedValues.SpatialScaleX:
+                        CreateSpatialScaleXCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
+                        break;
+
+                    case ChangedValues.SpatialScaleY:
+                        CreateSpatialScaleYCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
+                        break;
+
+                    case ChangedValues.RotationZ:
+                        CreateRotationZCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
                     case ChangedValues.PivotX:
-                        SetKeys<SpriteInfo>(kvPair.Value, timeLine, x => x.pivot_x, animation, mainlineBlending: false, CurveType.instant);
-                        var pivotXPropName = $"{nameof(DynamicPivot2D.pivot)}.{nameof(DynamicPivot2D.pivot.x)}";
-                        var pivotXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(DynamicPivot2D), pivotXPropName);
-                        AnimationUtility.SetEditorCurve(clip, pivotXBinding, kvPair.Value);
+                        CreatePivotXCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
                     case ChangedValues.PivotY:
-                        SetKeys<SpriteInfo>(kvPair.Value, timeLine, x => x.pivot_y, animation, mainlineBlending: false, CurveType.instant);
-                        var pivotYPropName = $"{nameof(DynamicPivot2D.pivot)}.{nameof(DynamicPivot2D.pivot.y)}";
-                        var pivotYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(DynamicPivot2D), pivotYPropName);
-                        AnimationUtility.SetEditorCurve(clip, pivotYBinding, kvPair.Value);
+                        CreatePivotYCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
                     case ChangedValues.VirtualParent:
-                        {
-                            SetVirtualParentKeys(kvPair.Value, timeLine, x => x.parentBoneName, animation, child.name);
-
-                            // The VirtualParent is on this game object's parent.
-                            if (child.parent.TryGetComponent<VirtualParent>(out var virtualParentComponent))
-                            {
-                                var virtualParentTransform = virtualParentComponent.transform;
-                                var virtualParentTransformPath = GetPathToChild(virtualParentTransform);
-                                var virtualParentBinding = EditorCurveBinding.FloatCurve(virtualParentTransformPath,
-                                    typeof(VirtualParent), nameof(VirtualParent.parentIndex));
-
-                                AnimationUtility.SetEditorCurve(clip, virtualParentBinding, kvPair.Value);
-                            }
-                            else
-                            {
-                                Debug.LogWarning($"A Virtual Parent component wasn't found for '{timeLine.name}' " +
-                                    $"on the '{child.parent.gameObject.name}' game object");
-                            }
-                        }
+                        CreateVirtualParentCurve(childPath, timeline, clip, animation, curve: kvPair.Value, child);
                         break;
 
                     case ChangedValues.Alpha:
-                        {
-                            SetKeys<SpatialInfo>(kvPair.Value, timeLine, x => x.a, animation);
-
-                            if (child.TryGetComponent<AlphaController>(out var alphaController))
-                            {
-                                var alphaControllerTransform = alphaController.transform;
-                                var alphaControllerTransformPath = GetPathToChild(alphaControllerTransform);
-                                var alphaBinding = EditorCurveBinding.FloatCurve(alphaControllerTransformPath,
-                                    typeof(AlphaController), nameof(AlphaController.Alpha));
-
-                                AnimationUtility.SetEditorCurve(clip, alphaBinding, kvPair.Value);
-                            }
-                            else if (entityInfo.boneInfo.GetOrDefault(timeLine.name) == null) // Make sure it's not a bone.
-                            {
-                                // The SpriteRenderer is on this game object or a child.
-                                var rendererTransform = child.GetComponentInChildren<SpriteRenderer>(includeInactive: true).transform;
-                                var rendererTransformPath = GetPathToChild(rendererTransform);
-                                var rendererBinding = EditorCurveBinding.FloatCurve(rendererTransformPath, typeof(SpriteRenderer), "m_Color.a");
-
-                                AnimationUtility.SetEditorCurve(clip, rendererBinding, kvPair.Value);
-                            }
-                            else
-                            {
-                                Debug.LogWarning($"An Alpha Controller component didn't get created for bone '{timeLine.name}'");
-                            }
-                        }
+                        CreateAlphaCurve(childPath, timeline, clip, animation, curve: kvPair.Value, child);
                         break;
 
                     case ChangedValues.Sprite:
-                        {
-                            // The SpriteRenderer is on this game object or a child.
-                            var rendererTransform = child.GetComponentInChildren<SpriteRenderer>(includeInactive: true).transform;
-
-                            if (ScmlImportOptions.options != null && ScmlImportOptions.options.directSpriteSwapping)
-                            {
-                                SetSpriteSwapKeys(rendererTransform, timeLine, clip, animation);
-                            }
-                            else
-                            {
-                                TextureController swapper;
-                                rendererTransform.TryGetComponent(out swapper);
-
-                                if (swapper == null)
-                                {   //Add a Texture Controller if one doesn't already exist
-                                    swapper = rendererTransform.gameObject.AddComponent<TextureController>();
-                                    var info = (SpriteInfo)defaultInfo;
-                                    swapper.Sprites = new[] { Folders[info.folderId][info.fileId] };
-                                }
-
-                                SetKeys(kvPair.Value, timeLine, ref swapper.Sprites, animation);
-
-                                var rendererTransformPath = GetPathToChild(rendererTransform);
-                                var textureControllerBinding = EditorCurveBinding.FloatCurve(rendererTransformPath,
-                                    typeof(TextureController), nameof(TextureController.DisplayedSprite));
-
-                                AnimationUtility.SetEditorCurve(clip, textureControllerBinding, kvPair.Value);
-                            }
-                        }
+                        CreateSpriteCurve(childPath, timeline, clip, animation, curve: kvPair.Value, child, defaultInfo);
                         break;
                 }
             }
@@ -912,37 +844,260 @@ namespace Stui.Animations
             clip.EnsureQuaternionContinuity();
         }
 
-        private bool ConvertTimelineAngles(Timeline timeLine, Animation animation)
+        private void CreatePositionXCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
         {
-            for (int i = 0; i < timeLine.keys.Count; ++i)
+            SetKeys<SpatialInfo>(curve, timeline, x => x.x, animation);
+            var positionXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.x");
+            AnimationUtility.SetEditorCurve(clip, positionXBinding, curve);
+        }
+
+        private void CreatePositionYCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.y, animation);
+            var positionYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.y");
+            AnimationUtility.SetEditorCurve(clip, positionYBinding, curve);
+        }
+
+        private void CreatePositionZCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            var positionZBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalPosition.z");
+            AnimationUtility.SetEditorCurve(clip, positionZBinding, CurveBuilder.CreateLinearCurve(0f, animation.length, 0f, 0f));
+        }
+
+        private void CreateSpatialPositionXCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.x, animation);
+            var positionXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(SpatialAdapter),
+                $"{nameof(SpatialAdapter.Position)}.{nameof(SpatialAdapter.Position.x)}");
+            AnimationUtility.SetEditorCurve(clip, positionXBinding, curve);
+        }
+
+        private void CreateSpatialPositionYCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.y, animation);
+            var positionYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(SpatialAdapter),
+                $"{nameof(SpatialAdapter.Position)}.{nameof(SpatialAdapter.Position.y)}");
+            AnimationUtility.SetEditorCurve(clip, positionYBinding, curve);
+        }
+
+        private void CreateScaleXCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.scale_x, animation);
+            var scaleXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalScale.x");
+            AnimationUtility.SetEditorCurve(clip, scaleXBinding, curve);
+        }
+
+        private void CreateScaleYCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.scale_y, animation);
+            var scaleYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalScale.y");
+            AnimationUtility.SetEditorCurve(clip, scaleYBinding, curve);
+        }
+
+        private void CreateScaleZCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            curve.AddKey(0f, 1f);
+            var scaleZBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "m_LocalScale.z");
+            AnimationUtility.SetEditorCurve(clip, scaleZBinding, curve);
+        }
+
+        private void CreateSpatialScaleXCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.scale_x, animation);
+            var scaleXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(SpatialAdapter),
+                $"{nameof(SpatialAdapter.Scale)}.{nameof(SpatialAdapter.Scale.x)}");
+            AnimationUtility.SetEditorCurve(clip, scaleXBinding, curve);
+        }
+
+        private void CreateSpatialScaleYCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.scale_y, animation);
+            var scaleYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(SpatialAdapter),
+                $"{nameof(SpatialAdapter.Scale)}.{nameof(SpatialAdapter.Scale.y)}");
+            AnimationUtility.SetEditorCurve(clip, scaleYBinding, curve);
+        }
+
+        private void CreateRotationZCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            var rotationXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "localEulerAnglesRaw.x");
+            AnimationUtility.SetEditorCurve(clip, rotationXBinding, CurveBuilder.CreateLinearCurve(0f, animation.length, 0f, 0f));
+
+            var rotationYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "localEulerAnglesRaw.y");
+            AnimationUtility.SetEditorCurve(clip, rotationYBinding, CurveBuilder.CreateLinearCurve(0f, animation.length, 0f, 0f));
+
+            bool tempFinalKeyCreated = ConvertTimelineAngles(timeline, animation);
+
+            SetKeys<SpatialInfo>(curve, timeline, x => x.angle, animation);
+
+            if (tempFinalKeyCreated)
+            {
+                timeline.keys.RemoveAt(timeline.keys.Count - 1);
+            }
+
+            var rotationZBinding = EditorCurveBinding.FloatCurve(childPath, typeof(Transform), "localEulerAnglesRaw.z");
+            AnimationUtility.SetEditorCurve(clip, rotationZBinding, curve);
+        }
+
+        private void CreatePivotXCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpriteInfo>(curve, timeline, x => x.pivot_x, animation, mainlineBlending: false, CurveType.instant);
+            var pivotXPropName = $"{nameof(DynamicPivot2D.pivot)}.{nameof(DynamicPivot2D.pivot.x)}";
+            var pivotXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(DynamicPivot2D), pivotXPropName);
+            AnimationUtility.SetEditorCurve(clip, pivotXBinding, curve);
+        }
+
+        private void CreatePivotYCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpriteInfo>(curve, timeline, x => x.pivot_y, animation, mainlineBlending: false, CurveType.instant);
+            var pivotYPropName = $"{nameof(DynamicPivot2D.pivot)}.{nameof(DynamicPivot2D.pivot.y)}";
+            var pivotYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(DynamicPivot2D), pivotYPropName);
+            AnimationUtility.SetEditorCurve(clip, pivotYBinding, curve);
+        }
+
+        private void CreateVirtualParentCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve, Transform child)
+        {
+            SetVirtualParentKeys(curve, timeline, x => x.parentBoneName, animation, child.name);
+
+            // The VirtualParent is on this game object's parent.
+            if (child.parent.TryGetComponent<VirtualParent>(out var virtualParentComponent))
+            {
+                var virtualParentTransform = virtualParentComponent.transform;
+                var virtualParentTransformPath = GetPathToChild(virtualParentTransform);
+                var virtualParentBinding = EditorCurveBinding.FloatCurve(virtualParentTransformPath,
+                    typeof(VirtualParent), nameof(VirtualParent.parentIndex));
+
+                AnimationUtility.SetEditorCurve(clip, virtualParentBinding, curve);
+            }
+            else
+            {
+                Debug.LogWarning($"A Virtual Parent component wasn't found for '{timeline.name}' " +
+                    $"on the '{child.parent.gameObject.name}' game object");
+            }
+        }
+
+        private void CreateAlphaCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve, Transform child)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.a, animation);
+
+            if (child.TryGetComponent<AlphaController>(out var alphaController))
+            {
+                var alphaControllerTransform = alphaController.transform;
+                var alphaControllerTransformPath = GetPathToChild(alphaControllerTransform);
+                var alphaBinding = EditorCurveBinding.FloatCurve(alphaControllerTransformPath,
+                    typeof(AlphaController), nameof(AlphaController.Alpha));
+
+                AnimationUtility.SetEditorCurve(clip, alphaBinding, curve);
+            }
+            else if (entityInfo.boneInfos.GetOrDefault(timeline.name) == null) // Make sure it's not a bone.
+            {
+                // The SpriteRenderer is on this game object or a child.
+                var rendererTransform = child.GetComponentInChildren<SpriteRenderer>(includeInactive: true).transform;
+                var rendererTransformPath = GetPathToChild(rendererTransform);
+                var rendererBinding = EditorCurveBinding.FloatCurve(rendererTransformPath, typeof(SpriteRenderer), "m_Color.a");
+
+                AnimationUtility.SetEditorCurve(clip, rendererBinding, curve);
+            }
+            else
+            {
+                Debug.LogWarning($"An Alpha Controller component didn't get created for bone '{timeline.name}'");
+            }
+        }
+
+        private void CreateSpriteCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve, Transform child, SpatialInfo defaultInfo)
+        {
+            // The SpriteRenderer is on this game object or a child.
+            var rendererTransform = child.GetComponentInChildren<SpriteRenderer>(includeInactive: true).transform;
+
+            if (ScmlImportOptions.options != null && ScmlImportOptions.options.directSpriteSwapping)
+            {
+                SetSpriteSwapKeys(rendererTransform, timeline, clip, animation);
+            }
+            else
+            {
+                TextureController swapper;
+                rendererTransform.TryGetComponent(out swapper);
+
+                if (swapper == null)
+                {   // Add a Texture Controller if one doesn't already exist
+                    swapper = rendererTransform.gameObject.AddComponent<TextureController>();
+                    var info = (SpriteInfo)defaultInfo;
+                    swapper.Sprites = new[] { Folders[info.folderId][info.fileId] };
+                }
+
+                SetKeys(curve, timeline, ref swapper.Sprites, animation);
+
+                var rendererTransformPath = GetPathToChild(rendererTransform);
+                var textureControllerBinding = EditorCurveBinding.FloatCurve(rendererTransformPath,
+                    typeof(TextureController), nameof(TextureController.DisplayedSprite));
+
+                AnimationUtility.SetEditorCurve(clip, textureControllerBinding, curve);
+            }
+        }
+
+        private void SetSpriteSwapKeys(Transform child, Timeline timeline, AnimationClip clip, Animation animation)
+        {
+            // Create ObjectReferenceCurve for swapping sprites. This curve will save data in object form instead of floats like regular AnimationCurve.
+            var keyframes = new List<ObjectReferenceKeyframe>();
+
+            foreach (var key in timeline.keys)
+            {
+                var info = (SpriteInfo)key.info;
+                var sprite = Folders[info.folderId][info.fileId];
+
+                keyframes.Add(new ObjectReferenceKeyframe { time = TweakTime(key.time_s), value = sprite });
+            }
+
+            var rendererBinding = new EditorCurveBinding { path = GetPathToChild(child), propertyName = "m_Sprite", type = typeof(SpriteRenderer) };
+            AnimationUtility.SetObjectReferenceCurve(clip, rendererBinding, keyframes.ToArray());
+        }
+
+        private bool ConvertTimelineAngles(Timeline timeline, Animation animation)
+        {
+            for (int i = 0; i < timeline.keys.Count; ++i)
             {   // Convert angles so that spin is taken into account...
-                float destAngle = timeLine.keys[i].info.angle;
+                float destAngle = timeline.keys[i].info.angle;
 
                 if (i > 0)
                 {
                     int prevKeyIdx = i - 1; // Spin and previous angle is in the _previous_ key.
 
-                    int spin = timeLine.keys[prevKeyIdx].spin;
+                    int spin = timeline.keys[prevKeyIdx].spin;
 
-                    float prevAngle = timeLine.keys[prevKeyIdx].info.angle;
+                    float prevAngle = timeline.keys[prevKeyIdx].info.angle;
                     float resultAngle = RotateAngle(prevAngle, destAngle, spin < 0);
 
-                    timeLine.keys[i].info.angle = resultAngle;
+                    timeline.keys[i].info.angle = resultAngle;
                 }
             }
 
-            if (timeLine.keys[timeLine.keys.Count - 1].time_s != animation.length && !WillNeedWrapAroundCurves(animation, timeLine))
+            if (timeline.keys[timeline.keys.Count - 1].time_s != animation.length && !WillNeedWrapAroundCurves(animation, timeline))
             {   // Create a temporary key for the last frame with the appropriate value.  This temporary key will need
                 // to be removed once the rotation curve is created.  It will interfere with the other curves otherwise.
-                float prevAngle = timeLine.keys[timeLine.keys.Count - 1].info.angle;
-                float destAngle = GetFinalFrameInferredKeyValue<SpatialInfo>(timeLine, x => x.angle, animation);
+                float prevAngle = timeline.keys[timeline.keys.Count - 1].info.angle;
+                float destAngle = GetFinalFrameInferredKeyValue<SpatialInfo>(timeline, x => x.angle, animation);
                 float resultAngle = RotateAngle(prevAngle, destAngle, false, shortest: true);
 
-                var newKey = timeLine.keys[timeLine.keys.Count - 1].Clone();
+                var newKey = timeline.keys[timeline.keys.Count - 1].Clone();
                 newKey.time_s = animation.length;
                 newKey.info.angle = resultAngle;
 
-                timeLine.keys.Add(newKey);
+                timeline.keys.Add(newKey);
 
                 return true;
             }
@@ -1149,7 +1304,7 @@ namespace Stui.Animations
             }
         }
 
-        private void SetKeys<T>(AnimationCurve curve, Timeline timeLine, Func<T, float> infoValue,
+        private void SetKeys<T>(AnimationCurve curve, Timeline timeline, Func<T, float> infoValue,
             Animation animation, bool mainlineBlending = true, CurveType overrideCurveType = CurveType.linear) where T : SpatialInfo
         {
             // Mainline keys that have a curve type other than linear will 'blend' (for lack of a better term) with the
@@ -1161,11 +1316,11 @@ namespace Stui.Animations
 
             if (needsMainlineBlending)
             {
-                SetKeysWithMainlineBlending(curve, timeLine, infoValue, animation);
+                SetKeysWithMainlineBlending(curve, timeline, infoValue, animation);
             }
             else
             {
-                DoSetKeys(curve, timeLine, infoValue, animation, overrideCurveType);
+                DoSetKeys(curve, timeline, infoValue, animation, overrideCurveType);
             }
         }
 
@@ -1213,14 +1368,14 @@ namespace Stui.Animations
             endingCurve = leftSideCurve;
         }
 
-        private void DoSetKeys<T>(AnimationCurve curve, Timeline timeLine, Func<T, float> infoValue,
+        private void DoSetKeys<T>(AnimationCurve curve, Timeline timeline, Func<T, float> infoValue,
             Animation animation, CurveType overrideCurveType = CurveType.linear) where T : SpatialInfo
         {
             List<AnimationCurve> allCurves = new List<AnimationCurve>();
 
-            for (int i = 0; i < timeLine.keys.Count; ++i)
+            for (int i = 0; i < timeline.keys.Count; ++i)
             {   // Create a keyframe for every key on its personal Timeline...
-                var key = timeLine.keys[i];
+                var key = timeline.keys[i];
 
                 if (key.time_s >= animation.length)
                 {   // This key is on the last frame of the animation.  A key will have already been
@@ -1229,13 +1384,13 @@ namespace Stui.Animations
                 }
 
                 float startTime = key.time_s;
-                float endTime = (i + 1 < timeLine.keys.Count) ? timeLine.keys[i + 1].time_s : animation.length;
+                float endTime = (i + 1 < timeline.keys.Count) ? timeline.keys[i + 1].time_s : animation.length;
 
                 float startValue = infoValue(key.info as T);
 
-                float endValue = (i + 1 < timeLine.keys.Count)
-                    ? infoValue(timeLine.keys[i + 1].info as T)
-                    : GetFinalFrameInferredKeyValue(timeLine, infoValue, animation);
+                float endValue = (i + 1 < timeline.keys.Count)
+                    ? infoValue(timeline.keys[i + 1].info as T)
+                    : GetFinalFrameInferredKeyValue(timeline, infoValue, animation);
 
                 CurveType curve_type = overrideCurveType != CurveType.linear
                     ? overrideCurveType
@@ -1244,7 +1399,7 @@ namespace Stui.Animations
                 allCurves.Add(CreateCurve(curve_type, startTime, endTime, startValue, endValue, key.c1, key.c2, key.c3, key.c4));
             }
 
-            if (WillNeedWrapAroundCurves(animation, timeLine))
+            if (WillNeedWrapAroundCurves(animation, timeline))
             {
                 // A key doesn't exist for time 0 but it should so we will take care of it as well as regenerate the
                 // curve for the last key here.  In this case, the animation loops so the curve needs to tween between
@@ -1253,7 +1408,7 @@ namespace Stui.Animations
                 AnimationCurve beginningCurve;
                 AnimationCurve endingCurve;
 
-                GenerateWrapAroundCurves(animation, timeLine, infoValue, out beginningCurve, out endingCurve);
+                GenerateWrapAroundCurves(animation, timeline, infoValue, out beginningCurve, out endingCurve);
 
                 allCurves.Insert(0, beginningCurve);
                 allCurves[allCurves.Count - 1] = endingCurve;
@@ -1263,14 +1418,14 @@ namespace Stui.Animations
             CurveBuilder.RemoveRedundantKeys(curve);
         }
 
-        private float GetFinalFrameInferredKeyValue<T>(Timeline timeLine, Func<T, float> infoValue,
+        private float GetFinalFrameInferredKeyValue<T>(Timeline timeline, Func<T, float> infoValue,
             Animation animation) where T : SpatialInfo
         {
             // This will return the appropriate value for the the last frame of an animation based on whether 1) there
             // is a time 0 auxiliary key, and if not 2) on whether the animation loops or not.
 
-            var firstKey = timeLine.keys[0];
-            var lastKey = timeLine.keys[timeLine.keys.Count - 1];
+            var firstKey = timeline.keys[0];
+            var lastKey = timeline.keys[timeline.keys.Count - 1];
             var timeZeroAuxKey = firstKey.timeZeroAuxKey;
 
             float endValue;
@@ -1291,11 +1446,11 @@ namespace Stui.Animations
             return endValue;
         }
 
-        private void SetKeysWithMainlineBlending<T>(AnimationCurve curve, Timeline timeLine, Func<T, float> infoValue,
+        private void SetKeysWithMainlineBlending<T>(AnimationCurve curve, Timeline timeline, Func<T, float> infoValue,
             Animation animation) where T : SpatialInfo
         {
             AnimationCurve timelineCurve = new AnimationCurve();
-            DoSetKeys(timelineCurve, timeLine, infoValue, animation); // The timeline curve without blending.
+            DoSetKeys(timelineCurve, timeline, infoValue, animation); // The timeline curve without blending.
 
             List<AnimationCurve> allCurves = new List<AnimationCurve>();
 
@@ -1311,7 +1466,7 @@ namespace Stui.Animations
                 }
 
                 // tlk is the timeline key that mlk is blending with.
-                var tlk = timeLine.keys.LastOrDefault(k => k.time_s <= mlk.time_s); // May be null.
+                var tlk = timeline.keys.LastOrDefault(k => k.time_s <= mlk.time_s); // May be null.
 
                 var curve_type = tlk?.curve_type == CurveType.instant
                     ? CurveType.instant
@@ -1335,7 +1490,7 @@ namespace Stui.Animations
                 {   // Note: The code here will likely be rarely used for real world Spriter animations.
 
                     // tlk (set above) and nextTlk are the two timeline keys that bracket the mainline key, mlk.  nextTlk may be null.
-                    var nextTlk = timeLine.keys.FirstOrDefault(k => k.time_s > mlk.time_s);
+                    var nextTlk = timeline.keys.FirstOrDefault(k => k.time_s > mlk.time_s);
 
                     float mlkStartTime = mlk.time_s;
                     float mlkEndTime = nextMlk != null ? nextMlk.time_s : animation.length;
@@ -1388,13 +1543,13 @@ namespace Stui.Animations
             CurveBuilder.RemoveRedundantKeys(curve);
         }
 
-        private void SetVirtualParentKeys(AnimationCurve curve, Timeline timeLine, Func<SpatialInfo, string> infoValue, Animation animation, string childName)
+        private void SetVirtualParentKeys(AnimationCurve curve, Timeline timeline, Func<SpatialInfo, string> infoValue, Animation animation, string childName)
         {
             List<AnimationCurve> allCurves = new List<AnimationCurve>();
 
-            for (int i = 0; i < timeLine.keys.Count; ++i)
+            for (int i = 0; i < timeline.keys.Count; ++i)
             {   // Create a keyframe for every key on its personal Timeline...
-                var key = timeLine.keys[i];
+                var key = timeline.keys[i];
 
                 if (key.time_s >= animation.length)
                 {   // This key is on the last frame of the animation.  A key will have already been
@@ -1403,17 +1558,17 @@ namespace Stui.Animations
                 }
 
                 float startTime = key.time_s;
-                float endTime = (i + 1 < timeLine.keys.Count) ? timeLine.keys[i + 1].time_s : animation.length;
+                float endTime = (i + 1 < timeline.keys.Count) ? timeline.keys[i + 1].time_s : animation.length;
 
                 string startParentBoneName = infoValue(key.info); // Parent transform name.
 
-                var firstKey = timeLine.keys[0];
-                var lastKey = timeLine.keys[timeLine.keys.Count - 1];
+                var firstKey = timeline.keys[0];
+                var lastKey = timeline.keys[timeline.keys.Count - 1];
                 var timeZeroAuxKey = firstKey.timeZeroAuxKey;
 
                 string endParentBoneName = infoValue(
-                    i + 1 < timeLine.keys.Count
-                        ? timeLine.keys[i + 1].info
+                    i + 1 < timeline.keys.Count
+                        ? timeline.keys[i + 1].info
                         : timeZeroAuxKey?.info
                             ?? (animation.looping && firstKey.time_s == 0f
                                 ? firstKey.info
@@ -1422,19 +1577,19 @@ namespace Stui.Animations
 
                 // The parent names will need to be converted to indexes.
 
-                int startValue = (entityInfo.boneInfo?.ContainsKey(childName) == true
-                    ? entityInfo.boneInfo[childName]?.parentBoneNames?.IndexOf(startParentBoneName)
+                int startValue = (entityInfo.boneInfos?.ContainsKey(childName) == true
+                    ? entityInfo.boneInfos[childName]?.parentBoneNames?.IndexOf(startParentBoneName)
                     : (int?)null)
-                ?? (entityInfo.objectInfo?.ContainsKey(childName) == true
-                    ? entityInfo.objectInfo[childName]?.parentBoneNames?.IndexOf(startParentBoneName)
+                ?? (entityInfo.objectInfos?.ContainsKey(childName) == true
+                    ? entityInfo.objectInfos[childName]?.parentBoneNames?.IndexOf(startParentBoneName)
                     : (int?)null)
                 ?? -1;
 
-                int endValue = (entityInfo.boneInfo?.ContainsKey(childName) == true
-                        ? entityInfo.boneInfo[childName]?.parentBoneNames?.IndexOf(endParentBoneName)
+                int endValue = (entityInfo.boneInfos?.ContainsKey(childName) == true
+                        ? entityInfo.boneInfos[childName]?.parentBoneNames?.IndexOf(endParentBoneName)
                         : (int?)null)
-                    ?? (entityInfo.objectInfo?.ContainsKey(childName) == true
-                        ? entityInfo.objectInfo[childName]?.parentBoneNames?.IndexOf(endParentBoneName)
+                    ?? (entityInfo.objectInfos?.ContainsKey(childName) == true
+                        ? entityInfo.objectInfos[childName]?.parentBoneNames?.IndexOf(endParentBoneName)
                         : (int?)null)
                     ?? -1;
 
@@ -1495,13 +1650,13 @@ namespace Stui.Animations
             return t;
         }
 
-        private void SetKeys(AnimationCurve curve, Timeline timeLine, ref Sprite[] sprites, Animation animation)
+        private void SetKeys(AnimationCurve curve, Timeline timeline, ref Sprite[] sprites, Animation animation)
         {
             List<AnimationCurve> allCurves = new List<AnimationCurve>();
 
-            for (int i = 0; i < timeLine.keys.Count; ++i)
+            for (int i = 0; i < timeline.keys.Count; ++i)
             {   // Create a keyframe for every key on its personal Timeline...
-                var key = timeLine.keys[i];
+                var key = timeline.keys[i];
                 var info = (SpriteInfo)key.info;
 
                 if (key.time_s >= animation.length)
@@ -1510,7 +1665,7 @@ namespace Stui.Animations
                     break;
                 }
 
-                var nextKey = (i + 1 < timeLine.keys.Count) ? timeLine.keys[i + 1] : null;
+                var nextKey = (i + 1 < timeline.keys.Count) ? timeline.keys[i + 1] : null;
                 var nextInfo = nextKey != null ? (SpriteInfo)nextKey.info : null;
 
                 float startTime = key.time_s;
@@ -1527,23 +1682,6 @@ namespace Stui.Animations
 
             CurveBuilder.ConcatenateCurvesInto(curve, allCurves.ToArray());
             CurveBuilder.RemoveRedundantKeys(curve);
-        }
-
-        void SetSpriteSwapKeys(Transform child, Timeline timeLine, AnimationClip clip, Animation animation)
-        {
-            // Create ObjectReferenceCurve for swapping sprites. This curve will save data in object form instead of floats like regular AnimationCurve.
-            var keyframes = new List<ObjectReferenceKeyframe>();
-
-            foreach (var key in timeLine.keys)
-            {
-                var info = (SpriteInfo)key.info;
-                var sprite = Folders[info.folderId][info.fileId];
-
-                keyframes.Add(new ObjectReferenceKeyframe { time = TweakTime(key.time_s), value = sprite });
-            }
-
-            var rendererBinding = new EditorCurveBinding { path = GetPathToChild(child), propertyName = "m_Sprite", type = typeof(SpriteRenderer) };
-            AnimationUtility.SetObjectReferenceCurve(clip, rendererBinding, keyframes.ToArray());
         }
 
         private int GetIndexOrAdd(ref Sprite[] sprites, Sprite sprite)
@@ -1625,10 +1763,14 @@ namespace Stui.Animations
             Alpha,
             PivotX,
             PivotY,
-            VirtualParent
+            VirtualParent,
+            SpatialPositionX,
+            SpatialPositionY,
+            SpatialScaleX,
+            SpatialScaleY
         }
 
-        private IDictionary<ChangedValues, AnimationCurve> GetCurves(Animation animation, Timeline timeLine,
+        private IDictionary<ChangedValues, AnimationCurve> GetCurves(Animation animation, Timeline timeline,
             SpatialInfo defaultInfo, Transform child)
         {
             // This method checks every animatable property for changes and creates a curve
@@ -1636,11 +1778,17 @@ namespace Stui.Animations
 
             var rv = new Dictionary<ChangedValues, AnimationCurve>();
 
-            foreach (var key in timeLine.keys)
+            SpriterInfoBase spriterInfo = (defaultInfo is SpriteInfo)
+                ? entityInfo.objectInfos[child.name]
+                : entityInfo.boneInfos[child.name];
+
+            SpatialAdapter spatialAdapter = spriterInfo.spatialAdapter;
+
+            foreach (var key in timeline.keys)
             {
                 var info = key.info;
 
-                if (!info.processed)
+                if (!info.haveBaked && SpriterEntityInfo.IsBakedBoneOrObject(spriterInfo, animation))
                 {
                     var currentTime = key.time_s;
                     var parentBoneName = key.info.parentBoneName; // May be virtual.
@@ -1663,14 +1811,27 @@ namespace Stui.Animations
                         parentInfo = parentKeyEntry?.info;
                     }
 
-                    info.Process(parentInfo);
+                    info.Bake(parentInfo);
                 }
 
-                if (!rv.ContainsKey(ChangedValues.PositionX) && (defaultInfo.x != info.x || defaultInfo.y != info.y))
+                if (spatialAdapter == null)
                 {
-                    rv[ChangedValues.PositionX] = new AnimationCurve(); // There will be irregular behaviour if curves aren't added for all members
-                    rv[ChangedValues.PositionY] = new AnimationCurve(); // in a group, so when one is set, the others have to be set as well
-                    rv[ChangedValues.PositionZ] = new AnimationCurve(); // Position.z is alway 0 and is created only when x and/or y is.
+                    if (!rv.ContainsKey(ChangedValues.PositionX) &&
+                        (defaultInfo.x != info.x || defaultInfo.y != info.y))
+                    {
+                        rv[ChangedValues.PositionX] = new AnimationCurve(); // There will be irregular behaviour if curves aren't added for all members
+                        rv[ChangedValues.PositionY] = new AnimationCurve(); // in a group, so when one is set, the others have to be set as well
+                        rv[ChangedValues.PositionZ] = new AnimationCurve(); // Position.z is alway 0 and is created only when x and/or y is.
+                    }
+                }
+                else
+                {
+                    if (!rv.ContainsKey(ChangedValues.SpatialPositionX) &&
+                        (spatialAdapter.Position.x != info.x || spatialAdapter.Position.y != info.y))
+                    {
+                        rv[ChangedValues.SpatialPositionX] = new AnimationCurve();
+                        rv[ChangedValues.SpatialPositionY] = new AnimationCurve();
+                    }
                 }
 
                 if (!rv.ContainsKey(ChangedValues.RotationZ) && (defaultInfo.angle != info.angle))
@@ -1678,11 +1839,24 @@ namespace Stui.Animations
                     rv[ChangedValues.RotationZ] = new AnimationCurve();
                 }
 
-                if (!rv.ContainsKey(ChangedValues.ScaleX) && (defaultInfo.scale_x != info.scale_x || defaultInfo.scale_y != info.scale_y))
+                if (spatialAdapter == null)
                 {
-                    rv[ChangedValues.ScaleX] = new AnimationCurve();
-                    rv[ChangedValues.ScaleY] = new AnimationCurve();
-                    rv[ChangedValues.ScaleZ] = new AnimationCurve();
+                    if (!rv.ContainsKey(ChangedValues.ScaleX) &&
+                        (defaultInfo.scale_x != info.scale_x || defaultInfo.scale_y != info.scale_y))
+                    {
+                        rv[ChangedValues.ScaleX] = new AnimationCurve();
+                        rv[ChangedValues.ScaleY] = new AnimationCurve();
+                        rv[ChangedValues.ScaleZ] = new AnimationCurve();
+                    }
+                }
+                else
+                {
+                    if (!rv.ContainsKey(ChangedValues.SpatialScaleX) &&
+                        (spatialAdapter.Scale.x != info.scale_x || spatialAdapter.Scale.y != info.scale_y))
+                    {
+                        rv[ChangedValues.SpatialScaleX] = new AnimationCurve();
+                        rv[ChangedValues.SpatialScaleY] = new AnimationCurve();
+                    }
                 }
 
                 if (!rv.ContainsKey(ChangedValues.Alpha) && defaultInfo.a != info.a)
@@ -1692,11 +1866,7 @@ namespace Stui.Animations
 
                 if (!rv.ContainsKey(ChangedValues.VirtualParent) && (defaultInfo.parentBoneName != info.parentBoneName))
                 {
-                    bool hasVirtualParent = (info is SpriteInfo)
-                        ? entityInfo.objectInfo[child.name].hasVirtualParent
-                        : entityInfo.boneInfo[child.name].hasVirtualParent;
-
-                    if (hasVirtualParent)
+                    if (spriterInfo.hasVirtualParent)
                     {
                         rv[ChangedValues.VirtualParent] = new AnimationCurve();
                     }
@@ -1720,7 +1890,7 @@ namespace Stui.Animations
                         rv[ChangedValues.Sprite] = new AnimationCurve();
                     }
 
-                    bool hasPivotController = entityInfo.objectInfo[child.name].hasPivotController;
+                    bool hasPivotController = (spriterInfo as SpriterObjectInfo).hasPivotController;
 
                     if (!rv.ContainsKey(ChangedValues.PivotX) && hasPivotController &&
                         (spriteDefaultInfo.pivot_x != sinfo.pivot_x || spriteDefaultInfo.pivot_y != sinfo.pivot_y))

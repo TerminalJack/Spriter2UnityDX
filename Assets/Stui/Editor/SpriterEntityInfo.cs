@@ -40,6 +40,9 @@ namespace Stui.EntityInfo
         public bool hasVirtualParent { get { return parentBoneNames.Count > 1; }}
         public string virtualParentTransformName; // Set even if there isn't one so ones from prior imports can be found.
         public Transform virtualParentTransform; // The transform where the VirtualParent component is.
+        public bool hasAlphaController;
+        public bool hasAnimatedBoneScales; // This is true for all bones with animated bone scales as well as their child bones and sprites.
+        public SpatialAdapter spatialAdapter; // This will be set by the prefab builder when/if it is created.
 
         public List<string> parentBoneNames = new List<string>();
 
@@ -47,9 +50,9 @@ namespace Stui.EntityInfo
         public Dictionary<int, VarInstanceInfo> varInstanceInfos = new Dictionary<int, VarInstanceInfo>(); // Empty if there aren't any variables for this object.
         public Dictionary<int, TagInstanceInfo> tagInstanceInfos = new Dictionary<int, TagInstanceInfo>(); // Empty if there aren't any tags for this object.
 
-        public bool HasMetadata { get { return HasVariables || HasTags;  } }
-        public bool HasVariables { get { return varInstanceInfos.Count > 0;  } }
-        public bool HasTags { get { return tagInstanceInfos.Count > 0; } }
+        public bool hasMetadata { get { return hasVariables || hasTags;  } }
+        public bool hasVariables { get { return varInstanceInfos.Count > 0;  } }
+        public bool hasTags { get { return tagInstanceInfos.Count > 0; } }
 
         public SpriterInfoBase(string _name, ObjectType _type)
         {
@@ -80,8 +83,6 @@ namespace Stui.EntityInfo
             : base(_name, _type)
         {
         }
-
-        public bool hasBoneAlpha;
     }
 
     // This class is used for tracking information that spans across all of an entity's animations.
@@ -92,8 +93,8 @@ namespace Stui.EntityInfo
     public class SpriterEntityInfo
     {
         // Note!: Bones and objects can have the same name in older Spriter projects so don't try to mix these into one collection.
-        public Dictionary<string, SpriterObjectInfo> objectInfo = new Dictionary<string, SpriterObjectInfo>();
-        public Dictionary<string, SpriterBoneInfo> boneInfo = new Dictionary<string, SpriterBoneInfo>();
+        public Dictionary<string, SpriterObjectInfo> objectInfos = new Dictionary<string, SpriterObjectInfo>();
+        public Dictionary<string, SpriterBoneInfo> boneInfos = new Dictionary<string, SpriterBoneInfo>();
 
         public string EntityName { get { return _entityName;  } }
 
@@ -103,14 +104,47 @@ namespace Stui.EntityInfo
         public Dictionary<int, VarInstanceInfo> varInstanceInfos = new Dictionary<int, VarInstanceInfo>(); // Empty if there aren't any variables for this object.
         public Dictionary<int, TagInstanceInfo> tagInstanceInfos = new Dictionary<int, TagInstanceInfo>(); // Empty if there aren't any tags for this object.
 
-        public bool HasMetadata { get { return HasVariables || HasTags;  } }
-        public bool HasVariables { get { return varInstanceInfos.Count > 0;  } }
-        public bool HasTags { get { return tagInstanceInfos.Count > 0; } }
+        public bool hasMetadata { get { return hasVariables || hasTags;  } }
+        public bool hasVariables { get { return varInstanceInfos.Count > 0;  } }
+        public bool hasTags { get { return tagInstanceInfos.Count > 0; } }
 
         private string _entityName;
 
         public SpriterEntityInfo()
         {
+        }
+
+        public static bool IsBakedBoneOrObject(SpriterInfoBase info, Animation animation)
+        {
+            // This bone uses baked position and scale if:
+            //   * Bone Scale Animation is disabled by the user.
+            //   * This animation is using baked data.
+            //   * This bone/object doesn't require unbaked data.
+
+            bool boneScaleAnimationEnabled = ScmlImportOptions.options?.boneScaleAnimationEnabled ?? false;
+
+            bool isBaked =
+                !boneScaleAnimationEnabled ||
+                animation.usesBakedSpatialData ||
+                !info.hasAnimatedBoneScales;
+
+            return isBaked;
+        }
+
+        public static bool UseTransformForPositionAndScale(SpriterInfoBase info)
+        {
+            // Which component (Transform or SpatialAdapter) is used for position and scale is determined by:
+            //   * Transform if Bone Scale Animation is disabled by the user.
+            //   * Transform if this bone/object doesn't require unbaked data.
+            //   * Otherwise, a SpatialAdapter is used.
+
+            bool boneScaleAnimationEnabled = ScmlImportOptions.options?.boneScaleAnimationEnabled ?? false;
+
+            bool useTransform =
+                !boneScaleAnimationEnabled ||
+                !info.hasAnimatedBoneScales;
+
+            return useTransform;
         }
 
         public IEnumerator Process(string spriterProjDirectory, ScmlObject scmlObject, Entity entity,
@@ -133,10 +167,6 @@ namespace Stui.EntityInfo
             if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, handling invalid bone data";
             HandleInvalidBoneData(entity);
-
-            if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, checking for animated bone scales";
-            CheckForAnimatedBoneScales(entity);
 
             LogProjectScopedTagInfo(scmlObject); // The log messages will only be seen when debug logging is enabled.
 
@@ -189,10 +219,6 @@ namespace Stui.EntityInfo
             PreprocessUnsupportTypes(entity); // Warns of unsupported types.  Puts them in objectInfo collection.
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, checking for bones that use alpha";
-            CheckForBoneAlphaUse(entity);
-
-            if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, preprocessing pivot points";
             PreprocessSpritePivots(entity, fileInfo);
 
@@ -207,6 +233,14 @@ namespace Stui.EntityInfo
             if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, preprocessing pivots and parents";
             PreprocessPivotsAndParents(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, checking for animated bone scales";
+            CheckForAnimatedBoneScales(entity);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, checking for bones that use alpha";
+            CheckForBoneAlphaUse(entity);
         }
 
         private void CheckForMissingMainlineKeys(Entity entity)
@@ -358,9 +392,21 @@ namespace Stui.EntityInfo
             }
         }
 
+        public static bool ScaleChangedEnough(float a, float b, float percentThreshold)
+        {
+            // Avoid division by zero if both are zero
+            if (a == 0f && b == 0f)
+                return false;
+
+            float avg = (Mathf.Abs(a) + Mathf.Abs(b)) * 0.5f;
+            float diff = Mathf.Abs(a - b) / avg;
+
+            return diff > percentThreshold;
+        }
+
         private void CheckForAnimatedBoneScales(Entity entity)
         {
-            var boneScaleInfo =
+            var boneScaleInfos =
                 (from anim in entity.animations
                  from mlk in anim.mainlineKeys
                  from boneRef in mlk.boneRefs
@@ -371,46 +417,54 @@ namespace Stui.EntityInfo
                  let scaleY = System.Math.Round(tlk.info.scale_y, 4)
                  select new
                  {
-                     animName = anim.name,
-                     animLength = anim.length,
+                     animation = anim,
                      boneName,
                      timeline = boneTimeline,
                      scaleX,
                      scaleY
                  })
                 .Distinct()
-                .GroupBy(x => new { x.animName, x.animLength, x.boneName, x.timeline })
+                .GroupBy(x => new { x.animation, x.boneName, x.timeline })
                 .Where(g => g.Select(x =>  new { x.scaleX, x.scaleY }).Distinct().Count() > 1)
                 .Select(g => new
                 {
-                    g.Key.animName,
-                    g.Key.animLength,
+                    g.Key.animation,
                     g.Key.boneName,
                     g.Key.timeline,
                     scales = g.Select(x => new { x.scaleX, x.scaleY }).Distinct().ToList()
                 })
-                .OrderBy(x => x.animName).ThenBy(x => x.boneName)
+                .OrderBy(x => x.animation.name).ThenBy(x => x.boneName)
                 .ToList();
 
-            // Remove all items that aren't really animated bone scales but pivot/parent changes or instant changes.
-            boneScaleInfo.RemoveAll(item =>
+            // Remove all items that aren't really animated bone scales but one of the following:
+            //
+            //     * Pivot changes.
+            //     * Parent changes.
+            //     * Instant changes.  (Covered by the case below.)
+            //     * Changes that happen faster than ~24 fps.  (Too fast to bother tweening.)
+            //     * Changes in scale that are too subtle to (hopefully) notice.
+            //
+            boneScaleInfos.RemoveAll(item =>
             {
+                const float minDeltaTime = 1f / 24f;
+                const float minPercentThreshold = 0.05f; // +/- 5%.
+
                 var tlks = item.timeline.keys.ToList(); // We need to work with our own copy of the list.
 
                 if (tlks.Count >= 3 && tlks[0].time_s == tlks[1].time_s)
                 {   // The first two keys have the same time so this is a pivot and/or parent change.  Put a copy of the
                     // key that is at index 0 at the end of the keys and remove it.
                     var first = tlks[0].Clone();
-                    first.time_s = item.animLength + 1f;
+                    first.time_s = item.animation.length + 1f;
 
                     tlks.RemoveAt(0);
                     tlks.Add(first);
                 }
 
-                // Check each of the spans between pivot/parent changes and instant changes and make sure the scales are
-                // the same or nearly the same for all of the keys in the span.  A new span starts when either two keys
-                // are found with the same time (a pivot and/or parent change) or the difference of their times
-                // is < ~1ms (an instant change.)
+                // Check each of the spans between pivot/parent changes and instant/nearly instant changes and make sure
+                // the scales are the same or nearly the same for all of the keys in the span.  A new span starts when
+                // either two keys are found with the same time (a pivot and/or parent change) or the difference of
+                // their times is < minDeltaTime, a time too fast to bother tweening.
                 bool newSpan = true;
 
                 for (int i = 1; i < tlks.Count; ++i)
@@ -421,14 +475,15 @@ namespace Stui.EntityInfo
                     double prevKeyTime = System.Math.Round(prevKey.time_s, 4);
                     double thisKeyTime = System.Math.Round(thisKey.time_s, 4);
 
-                    newSpan = thisKeyTime - prevKeyTime < 0.0011;
+                    newSpan = thisKeyTime - prevKeyTime < minDeltaTime;
 
                     if (!newSpan)
                     {
-                        var xDelta = Mathf.Abs(prevKey.info.scale_x - thisKey.info.scale_x);
-                        var yDelta = Mathf.Abs(prevKey.info.scale_y - thisKey.info.scale_y);
+                        bool scaleChangeNoticable =
+                            ScaleChangedEnough(prevKey.info.scale_x, thisKey.info.scale_x, minPercentThreshold) ||
+                            ScaleChangedEnough(prevKey.info.scale_y, thisKey.info.scale_y, minPercentThreshold);
 
-                        if (xDelta > 0.03f || yDelta > 0.03f)
+                        if (scaleChangeNoticable)
                         {
                             return false; // This timeline has animated bone scales.
                         }
@@ -438,28 +493,139 @@ namespace Stui.EntityInfo
                 return true; // This timeline does NOT have animated bone scales.
             });
 
-            if (boneScaleInfo.Count > 0)
+            if (boneScaleInfos.Count > 0)
             {
-                Debug.LogWarning($"Entity '{entity.name}' has one or more bones with animated scales.  " +
-                    "Animated bone scales are not supported by the importer.  The animation(s) may not match " +
-                    "Spriter's playback.  Information regarding this follows:");
+                // Note: Use regular console logging for this message so that the user will know which animations
+                // are affected.
+                var animatonNamesStr = string.Join(", ", boneScaleInfos.Select(bi => $"'{bi.animation.name}'").Distinct());
+
+                Debug.Log($"Entity '{entity.name}' has one or more animations ({animatonNamesStr}) that have bones " +
+                    "with animated scales.");
             }
 
-            foreach (var boneInfo in boneScaleInfo)
+            foreach (var boneScaleInfo in boneScaleInfos)
             {
-                Debug.LogWarning($"    Animation '{boneInfo.animName}', bone name '{boneInfo.boneName}' has one or " +
+                boneScaleInfo.animation.hasAnimatedBoneScales = true;
+                boneInfos[boneScaleInfo.boneName].hasAnimatedBoneScales = true;
+
+                Log($"    Animation '{boneScaleInfo.animation.name}', bone name '{boneScaleInfo.boneName}' has one or " +
                     "more keys with the following (different) scales:");
 
-                foreach (var scaleInfo in boneInfo.scales)
+                foreach (var scaleInfo in boneScaleInfo.scales)
                 {
-                    Debug.LogWarning($"        scale x: {scaleInfo.scaleX}, scale y: {scaleInfo.scaleY}");
+                    Log($"        scale x: {scaleInfo.scaleX}, scale y: {scaleInfo.scaleY}");
                 }
             }
+
+            var namesOfBonesWithAnimatedScales = boneScaleInfos.Select(i => i.boneName).Distinct().OrderBy(n => n).ToList();
+
+            SetupBonesWithAnimatedBoneScales(entity, namesOfBonesWithAnimatedScales);
+            SetupSpritesWithAnimatedBoneScales(entity, namesOfBonesWithAnimatedScales);
+        }
+
+        private void SetupBonesWithAnimatedBoneScales(Entity entity, List<string> namesOfBonesWithAnimatedScales)
+        {
+            foreach (var boneInfo in boneInfos.Values)
+            {
+                if (!boneInfo.hasAnimatedBoneScales) // May have been marked already.
+                {
+                    // If this bone has any ancestor bones that use animated bone scales then this bone will be marked
+                    // as having them as well.
+                    foreach (var parentBoneName in boneInfo.parentBoneNames)
+                    {
+                        if (BoneHasAnimatedScales(entity, namesOfBonesWithAnimatedScales, parentBoneName, depth: 0))
+                        {
+                            boneInfo.hasAnimatedBoneScales = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            var boneNamesWithAnimatedBoneScales = boneInfos.Values
+                .Where(i => i.hasAnimatedBoneScales)
+                .OrderBy(i => i.name)
+                .Select(i => i.name)
+                .ToList();
+
+            if (boneNamesWithAnimatedBoneScales.Count > 0)
+            {
+                Log($"Entity '{entity.name}' has the following bones that may require a spatial adapter due " +
+                    "to either having animated scales or having one or more ancestor bones that have an animated scale:");
+            }
+
+            foreach (var boneName in boneNamesWithAnimatedBoneScales)
+            {
+                Log($"    bone name: '{boneName}'");
+            }
+        }
+
+        private void SetupSpritesWithAnimatedBoneScales(Entity entity, List<string> namesOfBonesWithAnimatedScales)
+        {
+            foreach (var spriteInfo in objectInfos.Values.Where(i => i.type == ObjectType.sprite))
+            {
+                // If this sprite has any ancestor bones that use animated bone scales then the sprite will be marked
+                // as having them as well.
+                foreach (var parentBoneName in spriteInfo.parentBoneNames)
+                {
+                    if (BoneHasAnimatedScales(entity, namesOfBonesWithAnimatedScales, parentBoneName, depth: 0))
+                    {
+                        spriteInfo.hasAnimatedBoneScales = true;
+                        break;
+                    }
+                }
+            }
+
+            var spriteNamesWithAnimatedBoneScales = objectInfos.Values
+                .Where(i => i.hasAnimatedBoneScales)
+                .OrderBy(i => i.name)
+                .Select(i => i.name)
+                .ToList();
+
+            if (spriteNamesWithAnimatedBoneScales.Count > 0)
+            {
+                Log($"Entity '{entity.name}' has the following sprites that may require a spatial adapter due " +
+                    "to having one or more ancestor bones that have an animated scale:");
+            }
+
+            foreach (var spriteName in spriteNamesWithAnimatedBoneScales)
+            {
+                Log($"    sprite name: '{spriteName}'");
+            }
+        }
+
+        // ! This and BoneUsesAlphaController() are basically the same method.
+        private bool BoneHasAnimatedScales(Entity entity, List<string> namesOfBonesWithAnimatedScales, string boneName, int depth)
+        {
+            if (++depth > 100)
+            {
+                return false; // Guard against cycles.
+            }
+
+            if (namesOfBonesWithAnimatedScales.Contains(boneName))
+            {
+                return true;
+            }
+
+            var boneInfo = boneInfos.GetOrDefault(boneName);
+
+            if (boneInfo != null)
+            {
+                foreach (var parentName in boneInfo.parentBoneNames)
+                {
+                    if (BoneHasAnimatedScales(entity, namesOfBonesWithAnimatedScales, parentName, depth))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private void CheckForBoneAlphaUse(Entity entity)
         {
-            var boneAlphaInfos =
+            var namesOfBonesUsingAlpha =
                 (from anim in entity.animations
                  from mlk in anim.mainlineKeys
                  from boneRef in mlk.boneRefs
@@ -472,17 +638,81 @@ namespace Stui.EntityInfo
                 .OrderBy(bn => bn)
                 .ToList();
 
-            if (boneAlphaInfos.Count > 0)
+            if (namesOfBonesUsingAlpha.Count > 0)
             {
-                Log($"Entity '{entity.name}' has the following bones that are using alpha:");
+                Log($"Entity '{entity.name}' has the following bones that will require an alpha controller:");
             }
 
-            foreach (var boneName in boneAlphaInfos)
+            foreach (var boneName in namesOfBonesUsingAlpha)
             {
                 Log($"    bone name: '{boneName}'");
 
-                boneInfo[boneName].hasBoneAlpha = true;
+                boneInfos[boneName].hasAlphaController = true;
             }
+
+            SetupSpritesWithAlphaController(entity, namesOfBonesUsingAlpha);
+        }
+
+        private void SetupSpritesWithAlphaController(Entity entity, List<string> namesOfBonesUsingAlpha)
+        {
+            foreach (var spriteInfo in objectInfos.Values.Where(i => i.type == ObjectType.sprite))
+            {
+                // If this sprite has any ancestors using an alpha controller then the sprite will also need an
+                // alpha controller.
+                foreach (var parentBoneName in spriteInfo.parentBoneNames)
+                {
+                    if (BoneUsesAlphaController(entity, namesOfBonesUsingAlpha, parentBoneName, depth: 0))
+                    {
+                        spriteInfo.hasAlphaController = true;
+                        break;
+                    }
+                }
+            }
+
+            var spriteNamesWithAlphaControllers = objectInfos.Values
+                .Where(i => i.hasAlphaController)
+                .OrderBy(i => i.name)
+                .Select(i => i.name)
+                .ToList();
+
+            if (spriteNamesWithAlphaControllers.Count > 0)
+            {
+                Log($"Entity '{entity.name}' has the following sprites that will require an alpha controller due " +
+                    "to having an ancestor using bone alpha:");
+            }
+
+            foreach (var spriteName in spriteNamesWithAlphaControllers)
+            {
+                Log($"    sprite name: '{spriteName}'");
+            }
+        }
+
+        private bool BoneUsesAlphaController(Entity entity, List<string> namesOfBonesUsingAlpha, string boneName, int depth)
+        {
+            if (++depth > 100)
+            {
+                return false; // Guard against cycles.
+            }
+
+            if (namesOfBonesUsingAlpha.Contains(boneName))
+            {
+                return true;
+            }
+
+            var boneInfo = boneInfos.GetOrDefault(boneName);
+
+            if (boneInfo != null)
+            {
+                foreach (var parentName in boneInfo.parentBoneNames)
+                {
+                    if (BoneUsesAlphaController(entity, namesOfBonesUsingAlpha, parentName, depth))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private void LogProjectScopedTagInfo(ScmlObject scmlObject)
@@ -693,21 +923,21 @@ namespace Stui.EntityInfo
         {
             Log($"Entity '{entity.name}', preprocessing object-scoped metadata for all bones...");
 
-            foreach (var boneInfo in boneInfo.Values.Where(o => o.type == ObjectType.bone))
+            foreach (var boneInfo in boneInfos.Values.Where(o => o.type == ObjectType.bone))
             {
                 DoPreprocessObjectScopedMetadata(scmlObject, entity, boneInfo);
             }
 
             Log($"Entity: '{entity.name}', preprocessing object-scoped metadata for all sprites...");
 
-            foreach (var spriteInfo in objectInfo.Values.Where(o => o.type == ObjectType.sprite))
+            foreach (var spriteInfo in objectInfos.Values.Where(o => o.type == ObjectType.sprite))
             {
                 DoPreprocessObjectScopedMetadata(scmlObject, entity, spriteInfo);
             }
 
             Log($"Entity: '{entity.name}', preprocessing object-scoped metadata for all action points...");
 
-            foreach (var actionPtInfo in objectInfo.Values.Where(o => o.type == ObjectType.point))
+            foreach (var actionPtInfo in objectInfos.Values.Where(o => o.type == ObjectType.point))
             {
                 DoPreprocessObjectScopedMetadata(scmlObject, entity, actionPtInfo);
             }
@@ -843,7 +1073,7 @@ namespace Stui.EntityInfo
         {
             Log($"Entity: '{entity.name}', preprocessing event-scoped metadata for all events...");
 
-            foreach (var eventInfo in objectInfo.Values.Where(o => o.type == ObjectType.spriterEvent))
+            foreach (var eventInfo in objectInfos.Values.Where(o => o.type == ObjectType.spriterEvent))
             {
                 DoPreprocessEventScopedMetadata(scmlObject, entity, eventInfo);
             }
@@ -979,9 +1209,9 @@ namespace Stui.EntityInfo
         {
             Log($"Entity '{entity.name}', assigning object-scoped metadata references for all bones...");
 
-            foreach (var boneInfo in boneInfo.Values.Where(o => o.type == ObjectType.bone))
+            foreach (var boneInfo in boneInfos.Values.Where(o => o.type == ObjectType.bone))
             {
-                if (boneInfo.HasMetadata)
+                if (boneInfo.hasMetadata)
                 {
                     DoAssignObjectScopedMetadataReferences(scmlObject, entity, boneInfo);
                 }
@@ -989,9 +1219,9 @@ namespace Stui.EntityInfo
 
             Log($"Entity '{entity.name}', assigning object-scoped metadata references for all sprites...");
 
-            foreach (var spriteInfo in objectInfo.Values.Where(o => o.type == ObjectType.sprite))
+            foreach (var spriteInfo in objectInfos.Values.Where(o => o.type == ObjectType.sprite))
             {
-                if (spriteInfo.HasMetadata)
+                if (spriteInfo.hasMetadata)
                 {
                     DoAssignObjectScopedMetadataReferences(scmlObject, entity, spriteInfo);
                 }
@@ -999,9 +1229,9 @@ namespace Stui.EntityInfo
 
             Log($"Entity '{entity.name}', assigning object-scoped metadata references for all action points...");
 
-            foreach (var actionPtInfo in objectInfo.Values.Where(o => o.type == ObjectType.point))
+            foreach (var actionPtInfo in objectInfos.Values.Where(o => o.type == ObjectType.point))
             {
-                if (actionPtInfo.HasMetadata)
+                if (actionPtInfo.hasMetadata)
                 {
                     DoAssignObjectScopedMetadataReferences(scmlObject, entity, actionPtInfo);
                 }
@@ -1078,9 +1308,9 @@ namespace Stui.EntityInfo
         {
             Log($"Entity '{entity.name}', assigning event-scoped metadata references for all events...");
 
-            foreach (var eventInfo in objectInfo.Values.Where(o => o.type == ObjectType.spriterEvent))
+            foreach (var eventInfo in objectInfos.Values.Where(o => o.type == ObjectType.spriterEvent))
             {
-                if (eventInfo.HasMetadata)
+                if (eventInfo.hasMetadata)
                 {
                     DoAssignEventScopedMetadataReferences(scmlObject, entity, eventInfo);
                 }
@@ -1167,7 +1397,7 @@ namespace Stui.EntityInfo
             {
                 Log($"    '{boneName}'");
 
-                boneInfo.Add(boneName, new SpriterBoneInfo(boneName, ObjectType.bone));
+                boneInfos.Add(boneName, new SpriterBoneInfo(boneName, ObjectType.bone));
             }
         }
 
@@ -1188,7 +1418,7 @@ namespace Stui.EntityInfo
             {
                 Log($"    '{spriteName}'");
 
-                objectInfo.Add(spriteName, new SpriterObjectInfo(spriteName, ObjectType.sprite));
+                objectInfos.Add(spriteName, new SpriterObjectInfo(spriteName, ObjectType.sprite));
             }
         }
 
@@ -1211,7 +1441,7 @@ namespace Stui.EntityInfo
                 {
                     Log($"    '{actionPointName}'");
 
-                    objectInfo.Add(actionPointName, new SpriterObjectInfo(actionPointName, ObjectType.point));
+                    objectInfos.Add(actionPointName, new SpriterObjectInfo(actionPointName, ObjectType.point));
                 }
             }
             else
@@ -1239,7 +1469,7 @@ namespace Stui.EntityInfo
                 {
                     Log($"    '{eventName}'");
 
-                    objectInfo.Add(eventName, new SpriterObjectInfo(eventName, ObjectType.spriterEvent));
+                    objectInfos.Add(eventName, new SpriterObjectInfo(eventName, ObjectType.spriterEvent));
                 }
             }
             else
@@ -1349,13 +1579,13 @@ namespace Stui.EntityInfo
                 Debug.LogWarning($"    '{unsupportedType.name}' (type of {unsupportedType.objectType})");
 
                 // This still gets an entry in objectInfo.
-                objectInfo.Add(unsupportedType.name, new SpriterObjectInfo(unsupportedType.name, unsupportedType.objectType));
+                objectInfos.Add(unsupportedType.name, new SpriterObjectInfo(unsupportedType.name, unsupportedType.objectType));
             }
 
             // Check for any names that are duplicated in both collections and warn the
             // user if any are found.  This might be a problem for very old Spriter files...
-            var sharedNames = objectInfo.Keys
-                .Intersect(boneInfo.Keys)
+            var sharedNames = objectInfos.Keys
+                .Intersect(boneInfos.Keys)
                 .ToList();
 
             if (sharedNames.Count > 0)
@@ -1366,7 +1596,7 @@ namespace Stui.EntityInfo
 
             foreach (var name in sharedNames)
             {
-                Debug.LogWarning($"    The name '{name}' is shared by both a bone and a {objectInfo[name].type}");
+                Debug.LogWarning($"    The name '{name}' is shared by both a bone and a {objectInfos[name].type}");
             }
         }
 
@@ -1411,9 +1641,9 @@ namespace Stui.EntityInfo
             {
                 Log($"    '{spriteName}'");
 
-                objectInfo[spriteName].hasPivotController = true;
-                objectInfo[spriteName].pivotControllerTransformName = spriteName;
-                objectInfo[spriteName].spriteRenderTransformName = spriteName + " renderer";
+                objectInfos[spriteName].hasPivotController = true;
+                objectInfos[spriteName].pivotControllerTransformName = spriteName;
+                objectInfos[spriteName].spriteRenderTransformName = spriteName + " renderer";
             }
         }
 
@@ -1459,7 +1689,7 @@ namespace Stui.EntityInfo
 
                 Log($"    bone name: '{info.BoneName}', parent name(s) are: {parentNamesString}");
 
-                boneInfo[info.BoneName].parentBoneNames.AddRange(info.ParentBoneNames);
+                boneInfos[info.BoneName].parentBoneNames.AddRange(info.ParentBoneNames);
             }
         }
 
@@ -1505,7 +1735,7 @@ namespace Stui.EntityInfo
 
                 Log($"    object name: '{info.ObjectName}', parent name(s) are: {parentNamesString}");
 
-                objectInfo[info.ObjectName].parentBoneNames.AddRange(info.ParentBoneNames);
+                objectInfos[info.ObjectName].parentBoneNames.AddRange(info.ParentBoneNames);
             }
         }
 

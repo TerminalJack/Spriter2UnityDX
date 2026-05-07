@@ -17,7 +17,6 @@ using UnityEditor;
 using UnityEngine;
 using UnityEditor.IMGUI.Controls;
 using Stui;
-using Unity.VisualScripting;
 
 public class ScmlFileInspectorWindow : EditorWindow
 {
@@ -58,6 +57,7 @@ public class ScmlFileInspectorWindow : EditorWindow
     private bool _preprocessWithSpriterEntityInfo = true;
 
     private SerializedObject _soThis;
+    private ScmlFileInspectorWindow _thisWindow; // This is used to know when the window has been destroyed.
 
     [MenuItem("Assets/SCML File Inspector...", false, 110)]
     private static void ResizeSpriterProjectMenuItem()
@@ -99,6 +99,8 @@ public class ScmlFileInspectorWindow : EditorWindow
 
     void OnEnable()
     {
+        _thisWindow = this;
+
         titleContent = new GUIContent("SCML File Inspector");
         minSize = new Vector2(400, 350);
 
@@ -117,6 +119,8 @@ public class ScmlFileInspectorWindow : EditorWindow
 
     void OnDestroy()
     {
+        _thisWindow = null;
+
         if (_isRunning)
         {   // User clicked the windows 'X' to close it while the inspection task is running.  This doesn't seem to
             // cause a problem but warn the user anyway.
@@ -509,7 +513,7 @@ public class ScmlFileInspectorWindow : EditorWindow
 
         _isRunning = false;
 
-        if (!this.IsDestroyed())
+        if (_thisWindow != null)
         {
             Repaint();
         }

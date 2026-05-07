@@ -224,6 +224,8 @@ namespace Stui.Importing
         public Animation()
         {
             looping = true;
+            usesBakedSpatialData = true;
+            hasAnimatedBoneScales = false;
         }
 
         private string _name;
@@ -251,6 +253,9 @@ namespace Stui.Importing
         [XmlElement("eventline")] public List<Eventline> eventlines = new List<Eventline>();
         [XmlElement("soundline")] public List<Soundline> soundlines = new List<Soundline>();
         [XmlElement("meta")] public Metadata metadata;
+
+        [XmlIgnore] public bool usesBakedSpatialData { get; set; }
+        [XmlIgnore] public bool hasAnimatedBoneScales { get; set; }
     }
 
     public class MainlineKey : SpriterKey
@@ -449,10 +454,10 @@ namespace Stui.Importing
 
         [XmlAttribute] public float a { get; set; } // Alpha
 
-        public bool processed = false;
+        public bool haveBaked = false;
 
-        //Some very funky maths to make sure all the scale values are off the bones and on the sprite instead
-        public bool Process(SpatialInfo parent)
+        // Baking will make sure all the scale values are off the bones and on the sprite instead...
+        public bool Bake(SpatialInfo parent)
         {
             if (GetType() == typeof(SpatialInfo))
             {
@@ -475,7 +480,8 @@ namespace Stui.Importing
                     }
                 }
 
-                return processed = true;
+                haveBaked = true;
+                return true;
             }
 
             if (parent != null)
@@ -492,7 +498,8 @@ namespace Stui.Importing
                 }
             }
 
-            return processed = true;
+            haveBaked = true;
+            return true;
         }
     }
 

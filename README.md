@@ -106,7 +106,8 @@ The importer currently supports the following Spriter features:
 * **Event triggers.**  Events are user-defined actions (that is, your code) that run at a specific point in time during an animation.  These are imported as Unity animation events.  You can subscribe to these events either at design time via the inspector and/or you can subscribe to them at runtime via an API.  Stay tuned for more information regarding this feature.
 * **Variables.**  Spriter allows the animator to create animation curves for arbitrary, non-visual data.  These animation curves can then be used at runtime by the game designer for information that needs to be in-sync with the animations.  All of Spriter's variable types are supported by Stui: `float`s, `int`s and `string`s.  Stay tuned for more information regarding this feature.
 * **Tags.** Spriter tags are a simple way of indicating that the entity is, or is not, in a particular state.  Spriter allows you to define as many tags as you need.  A tag is either active or not and this can be determined at runtime by the game designer.  Stay tuned for more information regarding this feature.
-* **Bone alpha.**  Spriter allows a *bone's* transparency (aka alpha) to be animated (or just have a value other than 1.)  This affects the sprites that are children of the bone.  In practce, it doesn't look very good due to all of the overlapping sprites but the feature is supported by the importer should you need it.
+* **Bone alpha.**  Spriter allows a *bone's* transparency (aka alpha) to be animated (or just have a value other than 1.)  This affects the sprites that are children of the bone.  In practice, it doesn't look very good due to all of the overlapping sprites but the feature is supported by the importer should you need it.
+* **Animated bone scales.**  Spriter and Unity handle bone scales differently.  The importer has an option to support this feature.  In the cases where a Spriter project uses this feature, enabling the option at the time of import will help ensure that Unity's playback matches that of Spriter.  If the option is disabled then bone scales will be baked-in for each keyframe.  This is more performant but could result in Unity animations that do not entirely match Spriter's animations.
 
 ## Unsupported Spriter Features.
 
@@ -116,7 +117,6 @@ The following Spriter features are not supported at this time:
 * **SCON files.**  SCON files are an alternative to SCML files.  Stui works only with SCML files.  Spriter can easily convert a SCON file into a SCML file with its **File** | **Save As** feature.
 * **Sub-entities.**  Basically animations within animations.
 * **Texture Packer atlases.**  Stui works great with Unity's sprite atlases.  You are encouraged to use them instead.
-* **Animated bone scales.**  Strictly speaking, the importer supports a bone changing its scale.  It will not *tween* (i.e. animate) a bone's scale, however.
 * **Pixel art Spriter projects.**  Spriter supports a special mode for pixel art.  The importer doesn't support these types of Spriter projects.
 
 ## Import Options.
@@ -357,7 +357,19 @@ If you find that you need to add something such as a collider or a sprite render
 
 ## Caveats.
 
+### Editing Animations in Unity vs. Spriter
+
 While the importer strives to convert your Spriter projects into Unity animations, it doesn't necessarily focus on making those animations easy to edit in Unity.  You will likely find that it is better to continue using Spriter for animation creation and editing.
+
+### Timing Sensitivity and Import Optimization
+
+Before importing, it is a good idea to check each of the animations in Spriter and make any corrections to timing in the Spriter project instead of making them in Unity after importing.  The importer will make certain optimizations based on an animation's timing.  Because of this, it is important that the Spriter project's timing be a good representation of what will be used in your Unity project.
+
+For example, an animation with a length of 120 ms (just over 7 frames at 60 fps) in the Spriter project, when imported and slowed down to 1/10 the speed (1200 ms), won't always produce the result you would expect.
+
+This is particularly important when you are using the `Animate Bone Scales` feature.  The importer will decide whether to apply the feature, or not, based on the Spriter project's timing.  It will not bother tweening bone scales when it determines they will not be perceptible to the human eye.
+
+### Keyframe Structure and Stretching/Contracting Animations
 
 If you need to expand or contract an animation, prefer to do so in Spriter rather than in Unity.  For parent and pivot changes, Spriter actually uses two keys (for several properties) that have the exact same time.
 
@@ -370,6 +382,10 @@ On the flip side, contracting an animation in Unity risks having the editor drop
 ## Known Issues.
 
 During an import, having a Spriter project open in the Spriter application can (infrequently) cause the import to fail.  You will get an error regarding file access.  You may need to close the Spriter application in this case.
+
+The Unity editor does't track changes to a prefab properly.  If you play, preview, or scrub an animation then the editor will notice that several of the prefab's component properties have changed.  Unfortunately, the editor isn't smart enough to know that the values gets reverted afterward.  This causes the editor's `Prefab Overrides` feature to show dozens of 'changes' that never actually happened.
+
+Unity's `Animator Controller` preview window has several known issues that can make it difficult to work with when trying to adjust things such as transition timing.
 
 ## The `Resize Spriter Project` Utility
 

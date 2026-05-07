@@ -20,6 +20,7 @@ namespace Stui
     /// Takes the child’s localScale into account.
     /// </summary>
     [ExecuteAlways]
+    [DefaultExecutionOrder(100)] // Needs to run after SpatialAdapter.
     public class DynamicPivot2D : MonoBehaviour
     {
         [Tooltip("Pivot in normalized coords, (0,0)=bottom-left, (1,1)=top-right. Values outside [0..1] allowed.")]
