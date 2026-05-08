@@ -194,7 +194,13 @@ namespace Stui.Prefabs
             }
             else if (spatialController != null)
             {
+                foreach (var spatialAdapter in instance.GetComponentsInChildren<SpatialAdapter>())
+                {
+                    DestroyImmediate(spatialAdapter);
+                }
+
                 DestroyImmediate(spatialController);
+
                 spatialController = null;
             }
 
