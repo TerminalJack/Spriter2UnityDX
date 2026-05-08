@@ -233,7 +233,7 @@ This component updates the sprite renderer during `LateUpdate()`.  The value of 
 
 See the description of the `Sorting Order Updater` component for an image that includes the `Sprite Visibility` component.
 
-This component is responsible for enabling or disabling its corresponding sprite renderer.  Newer versions of Unity don't allow animation curves (built programatically) to be bound to the `SpriteRenderer.enabled` property so this component is basically a hack to get around that.
+This component is responsible for enabling or disabling its corresponding sprite renderer.  Newer versions of Unity don't allow animation curves (built programmatically) to be bound to the `SpriteRenderer.enabled` property so this component is basically a hack to get around that.
 
 The component's `Is Visible` property will be set by animation curves when a sprite needs to be visible or not.  A value of `false` will hide the sprite.  A value of `true` will show it.
 
@@ -361,13 +361,21 @@ If you find that you need to add something such as a collider or a sprite render
 
 While the importer strives to convert your Spriter projects into Unity animations, it doesn't necessarily focus on making those animations easy to edit in Unity.  You will likely find that it is better to continue using Spriter for animation creation and editing.
 
+### A 1 ms Difference in Keys is not the same as Instant/Constant Easing
+
+Spriter animators will frequently place a key just 1 ms after another with the intention of the change between the two keys being instantaneous.  This may be the case in the Spriter application but if you look at the imported curve in Unity it will have the same type of easing that was specified in the Spriter project--which will most likely be `linear` easing.
+
+Believe it or not, Unity's animation system can somehow manage to (infrequently) animate a bone/sprite's properties with a value that is _between_ the two keys.  This can be an issue when the inter-key value doesn't sync up with another key's value.  (The _other_ key will also be one that the animator intended to change instantaneously.) In these cases you will see, what can be best described as a quick 'glitch' where sprites are distorted and/or out of place.
+
+The fix for this issue is to simply mark these keys as `instant` in Spriter.
+
 ### Timing Sensitivity and Import Optimization
 
 Before importing, it is a good idea to check each of the animations in Spriter and make any corrections to timing in the Spriter project instead of making them in Unity after importing.  The importer will make certain optimizations based on an animation's timing.  Because of this, it is important that the Spriter project's timing be a good representation of what will be used in your Unity project.
 
 For example, an animation with a length of 120 ms (just over 7 frames at 60 fps) in the Spriter project, when imported and slowed down to 1/10 the speed (1200 ms), won't always produce the result you would expect.
 
-This is particularly important when you are using the `Animate Bone Scales` feature.  The importer will decide whether to apply the feature, or not, based on the Spriter project's timing.  It will not bother tweening bone scales when it determines they will not be perceptible to the human eye.
+This is particularly important when you are using the `Animate Bone Scales` feature.  The importer will decide whether to apply the feature, or not, based on the Spriter project's timing.  It will not bother tweening bone scales when it determines that the change will be too quick to be perceived by the human eye.
 
 ### Keyframe Structure and Stretching/Contracting Animations
 
@@ -377,13 +385,13 @@ Having two keys for the same property at the same frame time isn't possible in U
 
 On the flip side, contracting an animation in Unity risks having the editor drop keys that are too close to each other.  This is also one of the reasons why Spriter animation clips must be imported with a sample rate of 1000 frames per second.
 
->Stretching and contracting an animation in Spriter has its risks as well.  Creators will often place a key just 1 millisecond after another with the intention of instantly changing the key value(s).  Stretching the animation in this case will instead cause the value to tween between the two keys.  So be mindful in either case.
+>Stretching and contracting an animation in Spriter has its risks as well.  As discussed above, creators will often place a key just 1 ms after another with the intention of instantly changing the key value(s).  Stretching the animation in this case will likely (see above) cause the value to tween between the two keys, rather than being instant.  So be mindful in either case.
 
 ## Known Issues.
 
 During an import, having a Spriter project open in the Spriter application can (infrequently) cause the import to fail.  You will get an error regarding file access.  You may need to close the Spriter application in this case.
 
-The Unity editor does't track changes to a prefab properly.  If you play, preview, or scrub an animation then the editor will notice that several of the prefab's component properties have changed.  Unfortunately, the editor isn't smart enough to know that the values gets reverted afterward.  This causes the editor's `Prefab Overrides` feature to show dozens of 'changes' that never actually happened.
+The Unity editor doesn't track changes to a prefab properly.  If you play, preview, or scrub an animation then the editor will notice that several of the prefab's component properties have changed.  Unfortunately, the editor isn't smart enough to know that the values gets reverted afterward.  This causes the editor's `Prefab Overrides` feature to show dozens of 'changes' that never actually happened.
 
 Unity's `Animator Controller` preview window has several known issues that can make it difficult to work with when trying to adjust things such as transition timing.
 
