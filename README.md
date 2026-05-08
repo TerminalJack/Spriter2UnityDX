@@ -365,9 +365,11 @@ While the importer strives to convert your Spriter projects into Unity animation
 
 Spriter animators will frequently place a key just 1 ms after another with the intention of the change between the two keys being instantaneous.  This may be the case in the Spriter application but if you look at the imported curve in Unity it will have the same type of easing that was specified in the Spriter project--which will most likely be `linear` easing.
 
-Believe it or not, Unity's animation system can somehow manage to (infrequently) animate a bone/sprite's properties with a value that is _between_ the two keys.  This can be an issue when the inter-key value doesn't sync up with another key's value.  (The _other_ key will also be one that the animator intended to change instantaneously.) In these cases you will see, what can be best described as a quick 'glitch' where sprites are distorted and/or out of place.
+Believe it or not, Unity's animation system can somehow manage to (infrequently) animate a bone/sprite's properties with a value that is _between_ the two keys.  This can be an issue when the inter-key value does something that the animator didn't intend.  What can happen in these cases is that you will see what can be best described as a quick 'glitch' where sprites are distorted (wrong scale) and/or out of place (wrong position.)
 
-The fix for this issue is to simply mark these keys as `instant` in Spriter.
+A good way to know if these particular keys will be a problem is to use Spriter to make a few extra frames between the keys by moving the second mainline key 3 or 4 milliseconds to the right of the first key and then scrub through the frames between the two keys.  If you see anything that you wouldn't want to see in the final animation then you will need to fix the affected keys.
+
+The fix for this issue is to simply mark the first of the two timeline keys as `instant` in Spriter.
 
 ### Timing Sensitivity and Import Optimization
 
