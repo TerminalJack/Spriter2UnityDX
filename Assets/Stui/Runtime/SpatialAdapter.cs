@@ -17,6 +17,8 @@ namespace Stui
         public Vector2 Scale = Vector2.one;
 
         private readonly List<SpatialAdapter> _cachedSpatialAdapters = new List<SpatialAdapter>();
+        private readonly List<ScaleTracker> _cachedScaleTrackers = new List<ScaleTracker>();
+
         private readonly List<VirtualParent> _cachedVirtualParents = new List<VirtualParent>();
         private readonly List<int> _cachedVersions = new List<int>();
 
@@ -75,6 +77,11 @@ namespace Stui
                 finalLocalScale *= spatialAdapter.Scale;
             }
 
+            foreach (var scaleTracker in _cachedScaleTrackers)
+            {
+                finalLocalScale *= scaleTracker.RawScale;
+            }
+
             finalLocalScale = new Vector2(Mathf.Abs(finalLocalScale.x), Mathf.Abs(finalLocalScale.y));
 
             transform.localPosition = Position * finalLocalScale;
@@ -124,6 +131,7 @@ namespace Stui
         private void ResolveChain()
         {
             _cachedSpatialAdapters.Clear();
+            _cachedScaleTrackers.Clear();
             _cachedVirtualParents.Clear();
             _cachedVersions.Clear();
 
@@ -136,6 +144,11 @@ namespace Stui
                 if (t.TryGetComponent(out SpatialAdapter s))
                 {
                     _cachedSpatialAdapters.Add(s);
+                }
+
+                if (t.TryGetComponent(out ScaleTracker tracker))
+                {
+                    _cachedScaleTrackers.Add(tracker);
                 }
 
                 // Cache VirtualParent and its version, if present.

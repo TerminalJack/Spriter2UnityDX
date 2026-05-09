@@ -815,6 +815,14 @@ namespace Stui.Animations
                         CreateSpatialScaleYCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
+                    case ChangedValues.RawScaleX:
+                        CreateRawScaleXCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
+                        break;
+
+                    case ChangedValues.RawScaleY:
+                        CreateRawScaleYCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
+                        break;
+
                     case ChangedValues.RotationZ:
                         CreateRotationZCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
@@ -925,6 +933,24 @@ namespace Stui.Animations
             var scaleYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(SpatialAdapter),
                 $"{nameof(SpatialAdapter.Scale)}.{nameof(SpatialAdapter.Scale.y)}");
             AnimationUtility.SetEditorCurve(clip, scaleYBinding, curve);
+        }
+
+        private void CreateRawScaleXCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.rawScaleX, animation);
+            var rawScaleXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(ScaleTracker),
+                $"{nameof(ScaleTracker.RawScale)}.{nameof(ScaleTracker.RawScale.x)}");
+            AnimationUtility.SetEditorCurve(clip, rawScaleXBinding, curve);
+        }
+
+        private void CreateRawScaleYCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve)
+        {
+            SetKeys<SpatialInfo>(curve, timeline, x => x.rawScaleY, animation);
+            var rawScaleYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(ScaleTracker),
+                $"{nameof(ScaleTracker.RawScale)}.{nameof(ScaleTracker.RawScale.y)}");
+            AnimationUtility.SetEditorCurve(clip, rawScaleYBinding, curve);
         }
 
         private void CreateRotationZCurve(string childPath, Timeline timeline, AnimationClip clip,
@@ -1767,7 +1793,9 @@ namespace Stui.Animations
             SpatialPositionX,
             SpatialPositionY,
             SpatialScaleX,
-            SpatialScaleY
+            SpatialScaleY,
+            RawScaleX,
+            RawScaleY
         }
 
         private IDictionary<ChangedValues, AnimationCurve> GetCurves(Animation animation, Timeline timeline,
@@ -1783,6 +1811,7 @@ namespace Stui.Animations
                 : entityInfo.boneInfos[child.name];
 
             SpatialAdapter spatialAdapter = spriterInfo.spatialAdapter;
+            ScaleTracker scaleTracker = spriterInfo.scaleTracker;
 
             foreach (var key in timeline.keys)
             {
@@ -1847,6 +1876,16 @@ namespace Stui.Animations
                         rv[ChangedValues.ScaleX] = new AnimationCurve();
                         rv[ChangedValues.ScaleY] = new AnimationCurve();
                         rv[ChangedValues.ScaleZ] = new AnimationCurve();
+                    }
+
+                    if (scaleTracker != null)
+                    {
+                        if (!rv.ContainsKey(ChangedValues.RawScaleX) &&
+                            (defaultInfo.rawScaleX != info.rawScaleX || defaultInfo.rawScaleY != info.rawScaleY))
+                        {
+                            rv[ChangedValues.RawScaleX] = new AnimationCurve();
+                            rv[ChangedValues.RawScaleY] = new AnimationCurve();
+                        }
                     }
                 }
                 else

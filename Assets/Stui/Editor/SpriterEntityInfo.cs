@@ -41,8 +41,16 @@ namespace Stui.EntityInfo
         public string virtualParentTransformName; // Set even if there isn't one so ones from prior imports can be found.
         public Transform virtualParentTransform; // The transform where the VirtualParent component is.
         public bool hasAlphaController;
-        public bool hasAnimatedBoneScales; // This is true for all bones with animated bone scales as well as their child bones and sprites.
+
+        // Because support for animated bone scales is optional, the 'need' here can be overridden by the end-user.  If
+        // you want to know if the bone/object has either a SpatialAdapter or ScaleTracker then check the appropriate
+        // property below (spatialAdapter or scaleTracker) for a null/non-null value.  These will be set by the
+        // PrefabBuilder.
+        public bool needsSpatialAdapter; // This is true for all bones with animated bone scales as well as their child bones and sprites.
+        public bool needsScaleTracker; // Bones (where hasAnimatedBoneScales == false) that are parents of animated bones need to track their raw scale via a ScaleTracker.
+
         public SpatialAdapter spatialAdapter; // This will be set by the prefab builder when/if it is created.
+        public ScaleTracker scaleTracker; // This will be set by the prefab builder when/if it is created.
 
         public List<string> parentBoneNames = new List<string>();
 
@@ -116,7 +124,7 @@ namespace Stui.EntityInfo
 
         public static bool IsBakedBoneOrObject(SpriterInfoBase info, Animation animation)
         {
-            // This bone uses baked position and scale if:
+            // This bone/object uses baked position and scale if:
             //   * Bone Scale Animation is disabled by the user.
             //   * This animation is using baked data.
             //   * This bone/object doesn't require unbaked data.
@@ -126,7 +134,7 @@ namespace Stui.EntityInfo
             bool isBaked =
                 !boneScaleAnimationEnabled ||
                 animation.usesBakedSpatialData ||
-                !info.hasAnimatedBoneScales;
+                !info.needsSpatialAdapter;
 
             return isBaked;
         }
@@ -142,9 +150,24 @@ namespace Stui.EntityInfo
 
             bool useTransform =
                 !boneScaleAnimationEnabled ||
-                !info.hasAnimatedBoneScales;
+                !info.needsSpatialAdapter;
 
             return useTransform;
+        }
+
+        public static bool BoneUsesScaleTracker(SpriterInfoBase info)
+        {
+            // This bone uses a scale tracker if:
+            //   * Bone Scale Animation is enabled by the user.
+            //   * and, the bone was marked as needing a scale tracker.
+
+            bool boneScaleAnimationEnabled = ScmlImportOptions.options?.boneScaleAnimationEnabled ?? false;
+
+            bool useScaleTracker =
+                boneScaleAnimationEnabled &&
+                info.needsScaleTracker;
+
+            return useScaleTracker;
         }
 
         public IEnumerator Process(string spriterProjDirectory, ScmlObject scmlObject, Entity entity,
@@ -506,7 +529,7 @@ namespace Stui.EntityInfo
             foreach (var boneScaleInfo in boneScaleInfos)
             {
                 boneScaleInfo.animation.hasAnimatedBoneScales = true;
-                boneInfos[boneScaleInfo.boneName].hasAnimatedBoneScales = true;
+                boneInfos[boneScaleInfo.boneName].needsSpatialAdapter = true;
 
                 Log($"    Animation '{boneScaleInfo.animation.name}', bone name '{boneScaleInfo.boneName}' has one or " +
                     "more keys with the following (different) scales:");
@@ -527,7 +550,7 @@ namespace Stui.EntityInfo
         {
             foreach (var boneInfo in boneInfos.Values)
             {
-                if (!boneInfo.hasAnimatedBoneScales) // May have been marked already.
+                if (!boneInfo.needsSpatialAdapter) // May have been marked already.
                 {
                     // If this bone has any ancestor bones that use animated bone scales then this bone will be marked
                     // as having them as well.
@@ -535,7 +558,7 @@ namespace Stui.EntityInfo
                     {
                         if (BoneHasAnimatedScales(entity, namesOfBonesWithAnimatedScales, parentBoneName, depth: 0))
                         {
-                            boneInfo.hasAnimatedBoneScales = true;
+                            boneInfo.needsSpatialAdapter = true;
                             break;
                         }
                     }
@@ -543,7 +566,7 @@ namespace Stui.EntityInfo
             }
 
             var boneNamesWithAnimatedBoneScales = boneInfos.Values
-                .Where(i => i.hasAnimatedBoneScales)
+                .Where(i => i.needsSpatialAdapter)
                 .OrderBy(i => i.name)
                 .Select(i => i.name)
                 .ToList();
@@ -558,6 +581,37 @@ namespace Stui.EntityInfo
             {
                 Log($"    bone name: '{boneName}'");
             }
+
+            // For each of the bones in namesOfBonesWithAnimatedScales, walk up their hierarchy to the root and mark any
+            // ancestors as being a scale tracker if they aren't using animated bone scales...
+            foreach (var boneName in namesOfBonesWithAnimatedScales)
+            {
+                foreach (var parentBoneName in boneInfos[boneName].parentBoneNames)
+                {
+                    if (!boneInfos[parentBoneName].needsSpatialAdapter)
+                    {
+                        boneInfos[parentBoneName].needsScaleTracker = true;
+                    }
+                }
+            }
+
+            var boneNamesWithScaleTrackers = boneInfos.Values
+                .Where(i => i.needsScaleTracker)
+                .OrderBy(i => i.name)
+                .Select(i => i.name)
+                .ToList();
+
+            if (boneNamesWithScaleTrackers.Count > 0)
+            {
+                Log($"Entity '{entity.name}', has the following bones that may need a scale tracker due to being an " +
+                    "ancestor of one or more bones with animated scales:");
+            }
+
+            foreach (var boneName in boneNamesWithScaleTrackers)
+            {
+                Log($"    bone name: '{boneName}'");
+            }
+
         }
 
         private void SetupSpritesWithAnimatedBoneScales(Entity entity, List<string> namesOfBonesWithAnimatedScales)
@@ -570,14 +624,14 @@ namespace Stui.EntityInfo
                 {
                     if (BoneHasAnimatedScales(entity, namesOfBonesWithAnimatedScales, parentBoneName, depth: 0))
                     {
-                        spriteInfo.hasAnimatedBoneScales = true;
+                        spriteInfo.needsSpatialAdapter = true;
                         break;
                     }
                 }
             }
 
             var spriteNamesWithAnimatedBoneScales = objectInfos.Values
-                .Where(i => i.hasAnimatedBoneScales)
+                .Where(i => i.needsSpatialAdapter)
                 .OrderBy(i => i.name)
                 .Select(i => i.name)
                 .ToList();

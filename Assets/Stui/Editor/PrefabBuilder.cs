@@ -199,6 +199,11 @@ namespace Stui.Prefabs
                     DestroyImmediate(spatialAdapter);
                 }
 
+                foreach (var scaleTracker in instance.GetComponentsInChildren<ScaleTracker>())
+                {
+                    DestroyImmediate(scaleTracker);
+                }
+
                 DestroyImmediate(spatialController);
 
                 spatialController = null;
@@ -835,10 +840,31 @@ namespace Stui.Prefabs
 
                         if (SpriterEntityInfo.UseTransformForPositionAndScale(spriterBoneInfo))
                         {   // The Transform's Position and Scale are always used for animating this bone and they
-                            // will always be baked.  Remove any preexisting Spatial Adapter.
+                            // will always be baked.  The game object may also need a ScaleTracker if any of its
+                            // decendants are animated bones.
+
                             if (spatialAdapter != null)
                             {
                                 DestroyImmediate(spatialAdapter);
+                            }
+
+                            ScaleTracker scaleTracker;
+                            child.gameObject.TryGetComponent(out scaleTracker);
+
+                            if (SpriterEntityInfo.BoneUsesScaleTracker(spriterBoneInfo))
+                            {
+                                if (scaleTracker == null)
+                                {
+                                    scaleTracker = child.gameObject.AddComponent<ScaleTracker>();
+                                }
+
+                                scaleTracker.RawScale = new Vector2(spatialInfo.rawScaleX, spatialInfo.rawScaleY);
+
+                                spriterBoneInfo.scaleTracker = scaleTracker;
+                            }
+                            else if (scaleTracker != null)
+                            {
+                                DestroyImmediate(scaleTracker);
                             }
                         }
                         else

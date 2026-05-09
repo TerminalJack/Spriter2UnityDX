@@ -358,14 +358,16 @@ namespace Stui.Importing
     {
         public SpatialInfo()
         {
-            x = 0;
-            y = 0;
-            angle = 0;
-            scale_x = 1;
-            scale_y = 1;
+            x = 0f;
+            y = 0f;
+            angle = 0f;
+            scale_x = 1f;
+            scale_y = 1f;
+            _rawScaleX = float.NaN;
+            _rawScaleY = float.NaN;
             trueScaleX = float.NaN;
             trueScaleY = float.NaN;
-            a = 1;
+            a = 1f;
             parentBoneName = "Unknown";
         }
 
@@ -381,7 +383,7 @@ namespace Stui.Importing
         }
 
         // parentBoneName will be set appropriately once the data is loaded and processed.
-        public string parentBoneName { get; set; }
+        [XmlIgnore] public string parentBoneName { get; set; }
 
         private float _x;
 
@@ -424,6 +426,8 @@ namespace Stui.Importing
         [XmlAttribute] public float angle { get; set; }
 
         private float sx;
+        private float trueScaleX;
+        private float _rawScaleX; // The value read from the .scml file as-is and never changed.
 
         [XmlAttribute]
         public float scale_x
@@ -433,11 +437,20 @@ namespace Stui.Importing
             {
                 sx = value;
                 if (float.IsNaN(trueScaleX)) trueScaleX = value;
+
+                if (value != 1f && float.IsNaN(_rawScaleX))
+                {   // We're basically trying to ensure that 'value' is what comes from the xml serializer and not
+                    // because of the property being set later by the developer.
+                    _rawScaleX = value;
+                }
             }
         }
 
-        private float trueScaleX;
+        [XmlIgnore] public float rawScaleX => float.IsNaN(_rawScaleX) ? 1f : _rawScaleX;
+
         private float sy;
+        private float trueScaleY;
+        private float _rawScaleY; // The value read from the .scml file as-is and never changed.
 
         [XmlAttribute]
         public float scale_y
@@ -447,18 +460,29 @@ namespace Stui.Importing
             {
                 sy = value;
                 if (float.IsNaN(trueScaleY)) trueScaleY = value;
+
+                if (value != 1f && float.IsNaN(_rawScaleY))
+                {   // We're basically trying to ensure that 'value' is what comes from the xml serializer and not
+                    // because of the property being set later by the developer.
+                    _rawScaleY = value;
+                }
             }
         }
 
-        private float trueScaleY;
+        [XmlIgnore] public float rawScaleY => float.IsNaN(_rawScaleY) ? 1f : _rawScaleY;
 
         [XmlAttribute] public float a { get; set; } // Alpha
 
-        public bool haveBaked = false;
+        [XmlIgnore] public bool haveBaked = false;
 
         // Baking will make sure all the scale values are off the bones and on the sprite instead...
         public bool Bake(SpatialInfo parent)
         {
+            // If either of these are still NaN at this point then we know that they had a value of 1 (the default)
+            // in the .scml file.
+            if (float.IsNaN(_rawScaleX)) _rawScaleX = 1f;
+            if (float.IsNaN(_rawScaleY)) _rawScaleY = 1f;
+
             if (GetType() == typeof(SpatialInfo))
             {
                 scale_x = (scale_x > 0) ? 1 : -1;
