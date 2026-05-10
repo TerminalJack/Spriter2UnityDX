@@ -324,6 +324,11 @@ namespace Stui.Animations
 
             AddSpriterEventsToClip(animation, clip);
 
+            var totalKeyCount = GetTotalKeyCount(clip);
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, total key count for animation: {totalKeyCount}";
+
             if (!ArrayUtility.Contains(Controller.animationClips, clip))
             {   // Don't add the clip if it's already there
                 if (buildCtx.IsCanceled) { yield break; }
@@ -356,6 +361,38 @@ namespace Stui.Animations
             EditorUtility.SetDirty(clip);
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(clip));
+        }
+
+        private static int GetTotalKeyCount(AnimationClip clip)
+        {
+            if (clip == null)
+            {
+                return 0;
+            }
+
+            int total = 0;
+
+            // Float curves (position, rotation, scale, colors, ints-as-floats, etc.)
+            foreach (var binding in AnimationUtility.GetCurveBindings(clip))
+            {
+                var curve = AnimationUtility.GetEditorCurve(clip, binding);
+                if (curve != null)
+                {
+                    total += curve.keys.Length;
+                }
+            }
+
+            // Object reference curves (sprites, materials, etc.)
+            foreach (var binding in AnimationUtility.GetObjectReferenceCurveBindings(clip))
+            {
+                var keys = AnimationUtility.GetObjectReferenceCurve(clip, binding);
+                if (keys != null)
+                {
+                    total += keys.Length;
+                }
+            }
+
+            return total;
         }
 
         private void AddSoundEventsToClip(Animation animation, AnimationClip clip)
@@ -1505,8 +1542,8 @@ namespace Stui.Animations
                     float startTime = mlk.time_s;
                     float endTime = nextMlk != null ? nextMlk.time_s : animation.length;
 
-                    float startValue = timelineCurve.Evaluate(startTime);
-                    float endValue = timelineCurve.Evaluate(endTime);
+                    float startValue = timelineCurve.Evaluate(TweakTime(startTime));
+                    float endValue = timelineCurve.Evaluate(TweakTime(endTime));
 
                     var mainlineCurve = CreateCurve(curve_type, startTime, endTime, startValue, endValue, mlk.c1, mlk.c2, mlk.c3, mlk.c4);
 
@@ -1524,8 +1561,8 @@ namespace Stui.Animations
                     float tlkStartTime = tlk.time_s;
                     float tlkEndTime = nextTlk != null ? nextTlk.time_s : animation.length;
 
-                    float tlkStartValue = timelineCurve.Evaluate(tlkStartTime);
-                    float tlkEndValue = timelineCurve.Evaluate(tlkEndTime);
+                    float tlkStartValue = timelineCurve.Evaluate(TweakTime(tlkStartTime));
+                    float tlkEndValue = timelineCurve.Evaluate(TweakTime(tlkEndTime));
 
                     // These are normalized easing curves for the mainline key and the timeline key.  The mainline
                     // curve's output will be the input to the timeline curve.
@@ -1556,8 +1593,8 @@ namespace Stui.Animations
                     }
 
                     // The following is done to make sure there are no problems when concatenating all the curves.
-                    samples[0] = timelineCurve.Evaluate(mlkStartTime);
-                    samples[samples.Count - 1] = timelineCurve.Evaluate(mlkEndTime);
+                    samples[0] = timelineCurve.Evaluate(TweakTime(mlkStartTime));
+                    samples[samples.Count - 1] = timelineCurve.Evaluate(TweakTime(mlkEndTime));
 
                     var resultCurve = CurveBuilder.CurveFitter.FromAdaptiveFit(samples, mlkDuration, mlkStartTime, 0.01f);
 

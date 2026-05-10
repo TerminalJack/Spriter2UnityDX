@@ -176,10 +176,6 @@ namespace Stui.EntityInfo
             _entityName = entity.name;
 
             if (buildCtx.IsCanceled) { yield break; }
-            yield return $"{buildCtx.MessagePrefix}, checking for missing mainline keys";
-            CheckForMissingMainlineKeys(entity);
-
-            if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, checking for missing mainline time=0 keys";
             CheckForMissingMainlineTime0Keys(entity);
 
@@ -264,50 +260,6 @@ namespace Stui.EntityInfo
             if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, checking for bones that use alpha";
             CheckForBoneAlphaUse(entity);
-        }
-
-        private void CheckForMissingMainlineKeys(Entity entity)
-        {
-            // Check for timelines that have keys without a corresponding mainline key...
-            var mainlineTimeSets = entity.animations
-                .ToDictionary(
-                    anim => anim,
-                    anim => new HashSet<float>(anim.mainlineKeys.Select(mk => mk.time))
-                );
-
-            var missingMainlineKeys = (
-                from anim in entity.animations
-                from tl in anim.timelines
-                from tlKey in tl.keys
-                let timeset = mainlineTimeSets[anim]
-                let currentTime = tlKey.time_s
-                let mlk = anim.mainlineKeys
-                    .OrderBy(mk => mk.time_s)
-                    .LastOrDefault(mk => mk.time_s == currentTime)
-                let isBoneTl = tl.objectType == ObjectType.bone
-                let refs = isBoneTl ? mlk?.boneRefs : mlk?.objectRefs
-                let myRef = refs?.FirstOrDefault(r => r.timelineId == tl.id)
-                where myRef == null
-                select new
-                {
-                    animation = anim,
-                    timeline = tl,
-                    missingTime = tlKey.time_s,
-                }
-            ).ToList();
-
-            if (missingMainlineKeys.Count > 0)
-            {
-                Debug.LogWarning($"For entity '{entity.name}', one or more timeline keys are missing a corresponding " +
-                    "mainline key.  These will be ignored.");
-            }
-
-            foreach (var mtk in missingMainlineKeys)
-            {
-                Debug.LogWarning($"    Animation: {mtk.animation.name}, timeline: {mtk.timeline.name}, time: {mtk.missingTime}");
-
-                mtk.timeline.keys.RemoveAll(k => k.time_s == mtk.missingTime);
-            }
         }
 
         private void CheckForMissingMainlineTime0Keys(Entity entity)
@@ -588,9 +540,12 @@ namespace Stui.EntityInfo
             {
                 foreach (var parentBoneName in boneInfos[boneName].parentBoneNames)
                 {
-                    if (!boneInfos[parentBoneName].needsSpatialAdapter)
+                    // Note: "rootTransform" will be a parent but won't be in boneInfos.
+                    var parentBoneInfo = boneInfos.GetOrDefault(parentBoneName);
+
+                    if (parentBoneInfo?.needsSpatialAdapter == false)
                     {
-                        boneInfos[parentBoneName].needsScaleTracker = true;
+                        parentBoneInfo.needsScaleTracker = true;
                     }
                 }
             }

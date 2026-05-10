@@ -383,15 +383,34 @@ namespace Stui
                     Mathf.Approximately(curr.value, next.value))
                 {
                     // Tangents must be flat or constant.
-                    bool flat =
+                    bool isFlat =
                         Mathf.Approximately(curr.inTangent, 0f) &&
                         Mathf.Approximately(curr.outTangent, 0f);
 
-                    bool isStep =
-                        float.IsPositiveInfinity(curr.inTangent) &&
-                        float.IsPositiveInfinity(curr.outTangent);
+                    if (!isFlat)
+                    {
+                        isFlat =
+                            AnimationUtility.GetKeyLeftTangentMode(curve, i) == AnimationUtility.TangentMode.Linear &&
+                            AnimationUtility.GetKeyRightTangentMode(curve, i) == AnimationUtility.TangentMode.Linear;
+                    }
 
-                    if (flat || isStep)
+                    bool isStep = false;
+
+                    if (!isFlat)
+                    {
+                        isStep =
+                            float.IsPositiveInfinity(curr.inTangent) &&
+                            float.IsPositiveInfinity(curr.outTangent);
+
+                        if (!isStep)
+                        {
+                            isStep =
+                                AnimationUtility.GetKeyLeftTangentMode(curve, i) == AnimationUtility.TangentMode.Constant &&
+                                AnimationUtility.GetKeyRightTangentMode(curve, i) == AnimationUtility.TangentMode.Constant;
+                        }
+                    }
+
+                    if (isFlat || isStep)
                     {
                         // Safe to remove.
                         removeIndices ??= new List<int>();
