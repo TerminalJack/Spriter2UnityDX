@@ -5,6 +5,7 @@
 // The original author provided an open-use permission statement, preserved in THIRD_PARTY_NOTICES.md.
 
 using UnityEngine;
+using UnityEngine.Serialization;
 
 // This script exists to provide compatibility between a wide variety of Unity versions.  At some point it was no
 // longer possible to bind animation curves to the SpriteRenderer.enabled property.
@@ -14,9 +15,11 @@ namespace Stui
     [ExecuteAlways]
     public class SpriteVisibility : MonoBehaviour
     {
-        public bool isVisible = false;
+        [FormerlySerializedAs("isVisible")]
+        public bool IsVisible = false;
 
         private SpriteRenderer _spriteRenderer;
+        private bool _lastIsVisible = true; // Note: Using this roughly doubles the speed of ApplyVisibility().
 
         void OnEnable()
         {
@@ -24,9 +27,8 @@ namespace Stui
             ApplyVisibility();
         }
 
-        void OnDidApplyAnimationProperties() => ApplyVisibility();
-
 #if UNITY_EDITOR
+        void OnDidApplyAnimationProperties() => ApplyVisibility();
         void Update() { if (!Application.isPlaying) ApplyVisibility(); }
 #endif
 
@@ -42,9 +44,10 @@ namespace Stui
 
         private void ApplyVisibility()
         {
-            if (_spriteRenderer != null)
+            if (_spriteRenderer != null && _lastIsVisible != IsVisible)
             {
-                _spriteRenderer.enabled = isVisible;
+                _lastIsVisible = IsVisible;
+                _spriteRenderer.enabled = IsVisible;
             }
         }
     }

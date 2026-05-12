@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Stui
 {
@@ -51,7 +52,8 @@ namespace Stui
     [RequireComponent(typeof(AudioSource))]
     public class SoundController : MonoBehaviour
     {
-        public List<SpriterSoundItem> soundItems = new List<SpriterSoundItem>();
+        [FormerlySerializedAs("soundItems")]
+        public List<SpriterSoundItem> SoundItems = new List<SpriterSoundItem>();
 
         private AudioSource _audioSource;
 
@@ -72,9 +74,9 @@ namespace Stui
 
             if (_audioSource != null)
             {
-                if (soundIdx >= 0 && soundIdx < soundItems.Count)
+                if (soundIdx >= 0 && soundIdx < SoundItems.Count)
                 {
-                    var soundItem = soundItems[soundIdx];
+                    var soundItem = SoundItems[soundIdx];
 
                     _audioSource.panStereo = soundItem.panning;
                     _audioSource.PlayOneShot(soundItem.audioClip, soundItem.volume);

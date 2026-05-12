@@ -186,7 +186,7 @@ namespace Stui.Animations
                         var visibilityComponent = kvPair.Value.GetComponentInChildren<SpriteVisibility>(includeInactive: true);
                         var visibilityComponentTransformPath = GetPathToChild(visibilityComponent.transform);
                         var binding = EditorCurveBinding.FloatCurve(visibilityComponentTransformPath, typeof(SpriteVisibility),
-                            nameof(SpriteVisibility.isVisible));
+                            nameof(SpriteVisibility.IsVisible));
                         var curve = new AnimationCurve(new Keyframe(0f, 0f, inf, inf));
 
                         AnimationUtility.SetEditorCurve(clip, binding, curve);
@@ -404,7 +404,7 @@ namespace Stui.Animations
 
                 foreach (var soundItem in entityInfo.soundItems.Where(si => si.animationName == animation.name))
                 {
-                    int soundIdx = soundController.soundItems.IndexOf(soundItem);
+                    int soundIdx = soundController.SoundItems.IndexOf(soundItem);
                     if (soundIdx < 0)
                     {
                         Debug.LogWarning("A sound item wasn't found in the SoundController.soundItems list.  The " +
@@ -1016,7 +1016,7 @@ namespace Stui.Animations
             Animation animation, AnimationCurve curve)
         {
             SetKeys<SpriteInfo>(curve, timeline, x => x.pivot_x, animation, mainlineBlending: false, CurveType.instant);
-            var pivotXPropName = $"{nameof(DynamicPivot2D.pivot)}.{nameof(DynamicPivot2D.pivot.x)}";
+            var pivotXPropName = $"{nameof(DynamicPivot2D.Pivot)}.{nameof(DynamicPivot2D.Pivot.x)}";
             var pivotXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(DynamicPivot2D), pivotXPropName);
             AnimationUtility.SetEditorCurve(clip, pivotXBinding, curve);
         }
@@ -1025,7 +1025,7 @@ namespace Stui.Animations
             Animation animation, AnimationCurve curve)
         {
             SetKeys<SpriteInfo>(curve, timeline, x => x.pivot_y, animation, mainlineBlending: false, CurveType.instant);
-            var pivotYPropName = $"{nameof(DynamicPivot2D.pivot)}.{nameof(DynamicPivot2D.pivot.y)}";
+            var pivotYPropName = $"{nameof(DynamicPivot2D.Pivot)}.{nameof(DynamicPivot2D.Pivot.y)}";
             var pivotYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(DynamicPivot2D), pivotYPropName);
             AnimationUtility.SetEditorCurve(clip, pivotYBinding, curve);
         }
@@ -1041,7 +1041,7 @@ namespace Stui.Animations
                 var virtualParentTransform = virtualParentComponent.transform;
                 var virtualParentTransformPath = GetPathToChild(virtualParentTransform);
                 var virtualParentBinding = EditorCurveBinding.FloatCurve(virtualParentTransformPath,
-                    typeof(VirtualParent), nameof(VirtualParent.parentIndex));
+                    typeof(VirtualParent), nameof(VirtualParent.ParentIndex));
 
                 AnimationUtility.SetEditorCurve(clip, virtualParentBinding, curve);
             }
@@ -1237,7 +1237,7 @@ namespace Stui.Animations
         private void CreateSpriteVisibilityCurve(Transform child, List<MainlineKey> mlks, Timeline timeline, AnimationClip clip)
         {
             var visibilityComponent = child.GetComponentInChildren<SpriteVisibility>(includeInactive: true);
-            var visibilityBindPoseValue = visibilityComponent.isVisible;
+            var visibilityBindPoseValue = visibilityComponent.IsVisible;
 
             var visibilityInfos =
             (
@@ -1288,7 +1288,7 @@ namespace Stui.Animations
 
                 var visibilityComponentTransformPath = GetPathToChild(visibilityComponent.transform);
                 var binding = EditorCurveBinding.FloatCurve(visibilityComponentTransformPath, typeof(SpriteVisibility),
-                    nameof(SpriteVisibility.isVisible));
+                    nameof(SpriteVisibility.IsVisible));
 
                 AnimationUtility.SetEditorCurve(clip, binding, curve);
             }

@@ -609,7 +609,7 @@ namespace Stui.Prefabs
 
                 foreach (var soundItem in entityInfo.soundItems)
                 {
-                    soundController.soundItems.Add(soundItem);
+                    soundController.SoundItems.Add(soundItem);
                 }
             }
         }
@@ -624,12 +624,12 @@ namespace Stui.Prefabs
                 {
                     if (info.virtualParentTransform.TryGetComponent<VirtualParent>(out var vp))
                     {
-                        vp.possibleParents.Clear();
+                        vp.PossibleParents.Clear();
 
                         foreach (var parentName in info.parentBoneNames)
                         {
                             var possibleParentTransform = transforms[parentName];
-                            vp.possibleParents.Add(possibleParentTransform);
+                            vp.PossibleParents.Add(possibleParentTransform);
                         }
                     }
                     else
@@ -646,7 +646,7 @@ namespace Stui.Prefabs
             // maps have to be disabled during the import and re-applied afterward.
             if (instance.TryGetComponent<CharacterMapController>(out var characterController))
             {
-                _previousActiveMapNames = characterController.activeMapNames.ToList();
+                _previousActiveMapNames = characterController.ActiveMapNames.ToList();
                 characterController.Clear();
             }
             else
@@ -671,7 +671,7 @@ namespace Stui.Prefabs
 
             // Build characterMapController.baseMap...
 
-            characterMapController.baseMap.Clear();
+            characterMapController.BaseMap.Clear();
 
             // Note: This code here is the reason why all active maps have to be temporarily removed.
             foreach (var renderer in instance.GetComponentsInChildren<SpriteRenderer>(includeInactive: true))
@@ -685,12 +685,12 @@ namespace Stui.Prefabs
                     for (int i = 0; i < textureController.Sprites.Length; ++i)
                     {
                         var sprite = textureController.Sprites[i];
-                        characterMapController.baseMap.Add(sprite, new SpriteMapTarget(targetTransform, i));
+                        characterMapController.BaseMap.Add(sprite, new SpriteMapTarget(targetTransform, i));
                     }
                 }
                 else
                 {
-                    characterMapController.baseMap.Add(renderer.sprite, new SpriteMapTarget(targetTransform, 0));
+                    characterMapController.BaseMap.Add(renderer.sprite, new SpriteMapTarget(targetTransform, 0));
                 }
             }
 
@@ -698,7 +698,7 @@ namespace Stui.Prefabs
 
             // Build characterMapController.availableMaps...
 
-            characterMapController.availableMaps.Clear();
+            characterMapController.AvailableMaps.Clear();
 
             foreach (var characterMap in entity.characterMaps)
             {
@@ -733,7 +733,7 @@ namespace Stui.Prefabs
                         }
                     }
 
-                    var spriteMapping = characterMapController.baseMap.spriteMaps.Find(s => s.sprite == srcSprite);
+                    var spriteMapping = characterMapController.BaseMap.spriteMaps.Find(s => s.sprite == srcSprite);
 
                     if (spriteMapping != null)
                     {
@@ -750,7 +750,7 @@ namespace Stui.Prefabs
                     }
                 }
 
-                characterMapController.availableMaps.Add(charMap);
+                characterMapController.AvailableMaps.Add(charMap);
             }
 
             if (_previousActiveMapNames != null)
@@ -759,10 +759,10 @@ namespace Stui.Prefabs
                 // character map controllers.)
                 _previousActiveMapNames.RemoveAll(name =>
                 {
-                    return characterMapController.availableMaps.Find(m => m.name == name) == null;
+                    return characterMapController.AvailableMaps.Find(m => m.name == name) == null;
                 });
 
-                characterMapController.activeMapNames = _previousActiveMapNames.ToList();
+                characterMapController.ActiveMapNames = _previousActiveMapNames.ToList();
                 characterMapController.Refresh(); // Apply any user-defined mappings.
 
                 _previousActiveMapNames = null;
@@ -976,7 +976,7 @@ namespace Stui.Prefabs
                         pivotController = child.gameObject.AddComponent<DynamicPivot2D>();
                     }
 
-                    pivotController.pivot = new Vector2(spriteInfo.pivot_x, spriteInfo.pivot_y);
+                    pivotController.Pivot = new Vector2(spriteInfo.pivot_x, spriteInfo.pivot_y);
                 }
                 else if (pivotController != null)
                 {
@@ -1065,7 +1065,7 @@ namespace Stui.Prefabs
 
                 // Disable the Sprite Renderer if this isn't the first frame of the first animation
                 renderer.enabled = firstAnim;
-                spriteVisibility.isVisible = firstAnim;
+                spriteVisibility.IsVisible = firstAnim;
             }
         }
 
@@ -1255,8 +1255,8 @@ namespace Stui.Prefabs
 
                 var virtualParentComponent = virtualParentTransform.GetOrAddComponent<VirtualParent>();
 
-                virtualParentComponent.possibleParents.Clear();
-                virtualParentComponent.parentIndex = 0; // We know this is the bind pose parent index from above.
+                virtualParentComponent.PossibleParents.Clear();
+                virtualParentComponent.ParentIndex = 0; // We know this is the bind pose parent index from above.
             }
             else
             {   // If a virtual parent exists, remove it.

@@ -60,9 +60,9 @@ namespace Stui
         {
             _characterMapController = target as CharacterMapController;
 
-            _activeMapNamesProperty = serializedObject.FindProperty("activeMapNames");
-            _baseMapProperty = serializedObject.FindProperty("baseMap");
-            _availableMapsProperty = serializedObject.FindProperty("availableMaps");
+            _activeMapNamesProperty = serializedObject.FindProperty(nameof(CharacterMapController.ActiveMapNames));
+            _baseMapProperty = serializedObject.FindProperty(nameof(CharacterMapController.BaseMap));
+            _availableMapsProperty = serializedObject.FindProperty(nameof(CharacterMapController.AvailableMaps));
 
             _activeMapNamesList = new ReorderableList(
                 serializedObject,
@@ -180,8 +180,8 @@ namespace Stui
                 EditorGUIUtility.singleLineHeight - 1f
             );
 
-            var mapName = _characterMapController.availableMaps[index].name;
-            bool isActiveMapName = _characterMapController.activeMapNames.Contains(mapName);
+            var mapName = _characterMapController.AvailableMaps[index].name;
+            bool isActiveMapName = _characterMapController.ActiveMapNames.Contains(mapName);
 
             Color oldBG = GUI.backgroundColor;
 
@@ -416,7 +416,7 @@ namespace Stui
 
             foreach (int realIndex in _availableMapsIndexMap)
             {
-                var mapName = _characterMapController.availableMaps[realIndex].name;
+                var mapName = _characterMapController.AvailableMaps[realIndex].name;
 
                 Rect rowRect = EditorGUILayout.GetControlRect(
                     false,
@@ -442,7 +442,7 @@ namespace Stui
                     rowRect.height - 2
                 );
 
-                bool isActiveMapName = _characterMapController.activeMapNames.Contains(mapName);
+                bool isActiveMapName = _characterMapController.ActiveMapNames.Contains(mapName);
 
                 Color oldBG = GUI.backgroundColor;
 
@@ -515,7 +515,7 @@ namespace Stui
 
             for (int i = 0; i < _availableMapsProperty.arraySize; i++)
             {
-                var name = _characterMapController.availableMaps[i].name;
+                var name = _characterMapController.AvailableMaps[i].name;
 
                 if (string.IsNullOrEmpty(_availableMapsSearchString) ||
                     name.IndexOf(_availableMapsSearchString, System.StringComparison.OrdinalIgnoreCase) >= 0)

@@ -11,6 +11,7 @@ namespace Stui
 {
     [ExecuteAlways]
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(30)] // Needs to run after VirtualParent.
     public class SpatialAdapter : MonoBehaviour
     {
         public Vector2 Position = new Vector2();
@@ -38,11 +39,12 @@ namespace Stui
                 Debug.LogWarning("A SpatialController component could not be found.");
             }
 
-            ApplySpriterScaling(forceResolution: true);
+            ResolveChain();
         }
 
+        void OnDidApplyAnimationProperties() => ApplySpriterScaling(); // ! Remove once call order is sorted out.
+
 #if UNITY_EDITOR
-        void OnDidApplyAnimationProperties() => ApplySpriterScaling();
         void Update() { if (!Application.isPlaying) ApplySpriterScaling(); }
 #endif
 
@@ -56,11 +58,11 @@ namespace Stui
             }
         }
 
-        private void ApplySpriterScaling(bool forceResolution = false)
+        private void ApplySpriterScaling()
         {
-            ResolveChainIfNeeded(forceResolution);
-
-            bool useSpriterScaling = _spatialController?.UseSpriterScaling ?? false;
+            bool useSpriterScaling = _spatialController != null
+                ? _spatialController.UseSpriterScaling
+                : false;
 
             if (!useSpriterScaling)
             {   // The values in Position and Scale are already baked.  They just need to be assigned to the transform.
@@ -69,6 +71,8 @@ namespace Stui
 
                 return;
             }
+
+            ResolveChainIfNeeded();
 
             Vector2 finalLocalScale = Vector2.one;
 
@@ -97,15 +101,8 @@ namespace Stui
                     1f);
         }
 
-        private void ResolveChainIfNeeded(bool forceResolution)
+        private void ResolveChainIfNeeded()
         {
-            if (forceResolution)
-            {
-                ResolveChain();
-
-                return;
-            }
-
             // If there are no VirtualParents in the chain then the chain will always be valid and will need to be
             // resolved only once.
             if (_cachedVirtualParents.Count == 0)
@@ -119,7 +116,7 @@ namespace Stui
             {
                 var vp = _cachedVirtualParents[i];
 
-                if (vp != null && vp.version != _cachedVersions[i])
+                if (vp != null && vp.Version != _cachedVersions[i])
                 {
                     ResolveChain();
 
@@ -155,14 +152,14 @@ namespace Stui
                 if (t.TryGetComponent(out VirtualParent vp))
                 {
                     _cachedVirtualParents.Add(vp);
-                    _cachedVersions.Add(vp.version);
+                    _cachedVersions.Add(vp.Version);
 
                     // Follow virtual parent redirection.  Note that this component will run during an import and, in
                     // that case, the possibleParents list can be empty for a short time.  We guard against that here.
                     // We rely on the 'version' changing once the list is updated.
 
-                    t = vp.possibleParents.Count > 0
-                        ? vp.possibleParents[vp.parentIndex]
+                    t = vp.PossibleParents.Count > 0
+                        ? vp.PossibleParents[vp.ParentIndex]
                         : t.parent;
                 }
                 else

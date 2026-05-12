@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Stui
 {
@@ -71,34 +72,38 @@ namespace Stui
 
     public class CharacterMapController : MonoBehaviour
     {
-        public List<string> activeMapNames = new List<string>();
+        [FormerlySerializedAs("activeMapNames")]
+        public List<string> ActiveMapNames = new List<string>();
 
-        public CharacterMapping baseMap = new CharacterMapping("base");
-        public List<CharacterMapping> availableMaps = new List<CharacterMapping>();
+        [FormerlySerializedAs("baseMap")]
+        public CharacterMapping BaseMap = new CharacterMapping("base");
+
+        [FormerlySerializedAs("availableMaps")]
+        public List<CharacterMapping> AvailableMaps = new List<CharacterMapping>();
 
         public void Clear()
         {
-            activeMapNames.Clear();
+            ActiveMapNames.Clear();
             Refresh();
         }
 
         public bool Add(string mapName)
         {
-            var map = availableMaps.Find(m => m.name == mapName);
+            var map = AvailableMaps.Find(m => m.name == mapName);
 
             if (map == null)
             {
                 return false;
             }
 
-            var currentIdx = activeMapNames.FindIndex(n => n == mapName);
+            var currentIdx = ActiveMapNames.FindIndex(n => n == mapName);
 
             if (currentIdx >= 0)
             {   // It is already in activeMaps.
-                activeMapNames.RemoveAt(currentIdx);
+                ActiveMapNames.RemoveAt(currentIdx);
             }
 
-            activeMapNames.Add(map.name);
+            ActiveMapNames.Add(map.name);
 
             Refresh();
 
@@ -107,11 +112,11 @@ namespace Stui
 
         public bool Remove(string mapName)
         {
-            var currentIdx = activeMapNames.FindIndex(n => n == mapName);
+            var currentIdx = ActiveMapNames.FindIndex(n => n == mapName);
 
             if (currentIdx >= 0)
             {
-                activeMapNames.RemoveAt(currentIdx);
+                ActiveMapNames.RemoveAt(currentIdx);
 
                 Refresh();
 
@@ -123,11 +128,11 @@ namespace Stui
 
         public void Refresh(bool logWarnings = true)
         {
-            ApplyMap(baseMap);
+            ApplyMap(BaseMap);
 
-            foreach (var mapName in activeMapNames)
+            foreach (var mapName in ActiveMapNames)
             {
-                var map = availableMaps.Find(m => m.name == mapName);
+                var map = AvailableMaps.Find(m => m.name == mapName);
 
                 if (map != null)
                 {

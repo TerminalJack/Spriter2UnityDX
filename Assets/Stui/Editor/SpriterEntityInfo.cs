@@ -535,7 +535,7 @@ namespace Stui.EntityInfo
             }
 
             // For each of the bones in namesOfBonesWithAnimatedScales, walk up their hierarchy to the root and mark any
-            // ancestors as being a scale tracker if they aren't using animated bone scales...
+            // ancestors as needing a scale tracker if they aren't already marked as needing a spatial adapter...
             foreach (var boneName in namesOfBonesWithAnimatedScales)
             {
                 foreach (var parentBoneName in boneInfos[boneName].parentBoneNames)
@@ -543,9 +543,9 @@ namespace Stui.EntityInfo
                     // Note: "rootTransform" will be a parent but won't be in boneInfos.
                     var parentBoneInfo = boneInfos.GetOrDefault(parentBoneName);
 
-                    if (parentBoneInfo?.needsSpatialAdapter == false)
+                    if (parentBoneInfo != null)
                     {
-                        parentBoneInfo.needsScaleTracker = true;
+                        MarkAncestorsForScaleTracker(parentBoneInfo, depth: 0);
                     }
                 }
             }
@@ -567,6 +567,30 @@ namespace Stui.EntityInfo
                 Log($"    bone name: '{boneName}'");
             }
 
+        }
+
+        private void MarkAncestorsForScaleTracker(SpriterBoneInfo parentBoneInfo, int depth)
+        {
+            if (++depth > 100)
+            {
+                return; // Guard against cycles.
+            }
+
+            if (!parentBoneInfo.needsSpatialAdapter)
+            {
+                parentBoneInfo.needsScaleTracker = true;
+            }
+
+            foreach (var parentName in parentBoneInfo.parentBoneNames)
+            {
+                // Note: "rootTransform" will be a parent but won't be in boneInfos.
+                var boneInfo = boneInfos.GetOrDefault(parentName);
+
+                if (boneInfo != null)
+                {
+                    MarkAncestorsForScaleTracker(boneInfo, depth);
+                }
+            }
         }
 
         private void SetupSpritesWithAnimatedBoneScales(Entity entity, List<string> namesOfBonesWithAnimatedScales)

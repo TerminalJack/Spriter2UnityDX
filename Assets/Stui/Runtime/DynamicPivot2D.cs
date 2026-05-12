@@ -5,6 +5,8 @@
 // The original author provided an open-use permission statement, preserved in THIRD_PARTY_NOTICES.md.
 
 using UnityEngine;
+using UnityEngine.Serialization;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -20,11 +22,12 @@ namespace Stui
     /// Takes the child’s localScale into account.
     /// </summary>
     [ExecuteAlways]
-    [DefaultExecutionOrder(100)] // Needs to run after SpatialAdapter.
+    [DefaultExecutionOrder(10)] // Have this run after Virtual Parent, although it shouldn't be necessary.
     public class DynamicPivot2D : MonoBehaviour
     {
         [Tooltip("Pivot in normalized coords, (0,0)=bottom-left, (1,1)=top-right. Values outside [0..1] allowed.")]
-        public Vector2 pivot = new Vector2(0.5f, 0.5f);
+        [FormerlySerializedAs("pivot")]
+        public Vector2 Pivot = new Vector2(0.5f, 0.5f);
 
         SpriteRenderer _spriteRenderer;
         Transform _spriteTransform;
@@ -85,7 +88,7 @@ namespace Stui
                 pxPivot.y / pxSize.y
             );
 
-            Vector2 normDiff = importBL - pivot; // how much to shift in normalized space
+            Vector2 normDiff = importBL - Pivot; // how much to shift in normalized space
 
             if (Mathf.Approximately(normDiff.x, 0f) && Mathf.Approximately(normDiff.y, 0f))
             {   // Just use the sprite's import pivot.

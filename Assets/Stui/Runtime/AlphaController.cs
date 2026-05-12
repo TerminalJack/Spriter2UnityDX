@@ -14,6 +14,7 @@ namespace Stui
     // game objects that are children of the bones, with virtual parents being taken into consideration.
 
     [ExecuteAlways]
+    [DefaultExecutionOrder(20)] // Needs to run after VirtualParent.
     public class AlphaController : MonoBehaviour
     {
         [Tooltip("Controls the transparency of this bone or sprite renderer.")]
@@ -99,7 +100,7 @@ namespace Stui
             {
                 var vp = _cachedVirtualParents[i];
 
-                if (vp != null && vp.version != _cachedVersions[i])
+                if (vp != null && vp.Version != _cachedVersions[i])
                 {
                     ResolveChain();
 
@@ -130,14 +131,14 @@ namespace Stui
                 if (t.TryGetComponent(out VirtualParent vp))
                 {
                     _cachedVirtualParents.Add(vp);
-                    _cachedVersions.Add(vp.version);
+                    _cachedVersions.Add(vp.Version);
 
                     // Follow virtual parent redirection.  Note that this component will run during an import and, in
                     // that case, the possibleParents list can be empty for a short time.  We guard against that here.
                     // We rely on the 'version' changing once the list is updated.
 
-                    t = vp.possibleParents.Count > 0
-                        ? vp.possibleParents[vp.parentIndex]
+                    t = vp.PossibleParents.Count > 0
+                        ? vp.PossibleParents[vp.ParentIndex]
                         : t.parent;
                 }
                 else
