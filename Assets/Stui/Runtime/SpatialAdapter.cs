@@ -11,8 +11,7 @@ namespace Stui
 {
     [ExecuteAlways]
     [DisallowMultipleComponent]
-    [DefaultExecutionOrder(30)] // Needs to run after VirtualParent.
-    public class SpatialAdapter : MonoBehaviour
+    public class SpatialAdapter : MonoBehaviour, ITransformModifier
     {
         public Vector2 Position = new Vector2();
         public Vector2 Scale = Vector2.one;
@@ -42,23 +41,7 @@ namespace Stui
             ResolveChain();
         }
 
-        void OnDidApplyAnimationProperties() => ApplySpriterScaling(); // ! Remove once call order is sorted out.
-
-#if UNITY_EDITOR
-        void Update() { if (!Application.isPlaying) ApplySpriterScaling(); }
-#endif
-
-        void LateUpdate()
-        {
-#if UNITY_EDITOR
-            if (Application.isPlaying)
-#endif
-            {
-                ApplySpriterScaling();
-            }
-        }
-
-        private void ApplySpriterScaling()
+        public void ApplyTransformModifier()
         {
             bool useSpriterScaling = _spatialController != null
                 ? _spatialController.UseSpriterScaling
@@ -155,12 +138,10 @@ namespace Stui
                     _cachedVersions.Add(vp.Version);
 
                     // Follow virtual parent redirection.  Note that this component will run during an import and, in
-                    // that case, the possibleParents list can be empty for a short time.  We guard against that here.
-                    // We rely on the 'version' changing once the list is updated.
+                    // that case, the virtual parent's possibleParents list can be empty for a short time.  The
+                    // following call will return the real parent in that case, which is fine for importing.
 
-                    t = vp.PossibleParents.Count > 0
-                        ? vp.PossibleParents[vp.ParentIndex]
-                        : t.parent;
+                    t = vp.GetVirtualParentTransform();
                 }
                 else
                 {

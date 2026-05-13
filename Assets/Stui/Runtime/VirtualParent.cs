@@ -12,7 +12,7 @@ namespace Stui
 {
     [ExecuteAlways]
     [DisallowMultipleComponent]
-    public class VirtualParent : MonoBehaviour
+    public class VirtualParent : MonoBehaviour, ITransformModifier
     {
         [Tooltip("List of Transforms whose local coordinate space this component will adopt when selected as its virtual parent.")]
         [FormerlySerializedAs("possibleParents")]
@@ -29,117 +29,29 @@ namespace Stui
         {
             get
             {
-                CheckForVersionChange();
+                if (ParentIndex != _lastParentIndex)
+                {
+                    _version++;
+                    _lastParentIndex = ParentIndex;
+                }
+
                 return _version;
             }
         }
 
-        // Virtual parents with their own virtual parents as real ancestors and/or virtual ancestors need to ensure
-        // the vp's further up the chain apply their constraints first.  That's what these are for.
-        VirtualParent _firstVpAncestor;
-        List<VirtualParent> _firstVpOfVirtualAncestors = new List<VirtualParent>();
-
         private int _version = 1;
         private int _lastParentIndex = -1;
 
-        private int _lastFrameCount = -1; // The frame count when constraints were last applied.
-
-        void OnEnable()
+        public Transform GetVirtualParentTransform()
         {
-            _firstVpAncestor = null;
-            _firstVpOfVirtualAncestors.Clear();
-
-            var parentTransform = transform.parent;
-
-            while (parentTransform != null)
-            {
-                if (parentTransform.TryGetComponent(out _firstVpAncestor))
-                {
-                    break; // Found it.
-                }
-
-                parentTransform = parentTransform.parent;
-            }
-
-            // Note: The indices of _firstVpOfVirtualAncestors will match those of possibleParents.  That is,
-            // _firstVpOfVirtualAncestors[n] is possibleParent[n]'s first vp, if any.  The exception to this is that
-            // if there is an entry for the component's actual parent in possibleParents then the corresponding
-            // entry in _firstVpOfVirtualAncestors will be null since _firstVpAncestor will already be set.
-
-            for (int i = 0; i < PossibleParents.Count; ++i)
-            {
-                VirtualParent vp = null;
-
-                if (PossibleParents[i] != _firstVpAncestor)
-                {
-                    var vpTransform = PossibleParents[i];
-
-                    while (vpTransform != null)
-                    {
-                        if (vpTransform.TryGetComponent(out vp))
-                        {
-                            break;
-                        }
-
-                        vpTransform = vpTransform.parent;
-                    }
-                }
-
-                _firstVpOfVirtualAncestors.Add(vp);
-            }
+            return ParentIndex >= 0 && ParentIndex < PossibleParents.Count
+                ? PossibleParents[ParentIndex]
+                : transform.parent;
         }
 
-        void OnDidApplyAnimationProperties() => CheckForVersionChange();
-
-        private void CheckForVersionChange()
+        public void ApplyTransformModifier()
         {
-            if (ParentIndex != _lastParentIndex)
-            {
-                _version++;
-                _lastParentIndex = ParentIndex;
-            }
-        }
-
-#if UNITY_EDITOR
-        void OnValidate() => ApplyConstraints();
-        void Update() { if (!Application.isPlaying) ApplyConstraints(); }
-#endif
-
-        void LateUpdate()
-        {
-#if UNITY_EDITOR
-            if (Application.isPlaying)
-#endif
-            {
-                ApplyConstraints();
-            }
-        }
-
-        private void ApplyConstraints()
-        {
-            if (_lastFrameCount == Time.frameCount)
-            {
-                return; // This component has already applied its constraints this frame.
-            }
-
-            _lastFrameCount = Time.frameCount;
-
-            CheckForVersionChange();
-
-            if (_firstVpAncestor != null && _firstVpAncestor._lastFrameCount != Time.frameCount)
-            {
-                _firstVpAncestor.ApplyConstraints();
-            }
-
-            if (ParentIndex > 0 && ParentIndex < _firstVpOfVirtualAncestors.Count)
-            {
-                var vp = _firstVpOfVirtualAncestors[ParentIndex];
-
-                if (vp != null && vp._lastFrameCount != Time.frameCount)
-                {
-                    vp.ApplyConstraints();
-                }
-            }
+            // Apply virtual parent constraints...
 
             if (ParentIndex < 0 ||
                 ParentIndex >= PossibleParents.Count ||

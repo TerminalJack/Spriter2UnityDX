@@ -22,7 +22,6 @@ namespace Stui
     /// Takes the child’s localScale into account.
     /// </summary>
     [ExecuteAlways]
-    [DefaultExecutionOrder(10)] // Have this run after Virtual Parent, although it shouldn't be necessary.
     public class DynamicPivot2D : MonoBehaviour
     {
         [Tooltip("Pivot in normalized coords, (0,0)=bottom-left, (1,1)=top-right. Values outside [0..1] allowed.")]

@@ -189,7 +189,7 @@ namespace Stui.Prefabs
             {
                 if (spatialController == null)
                 {
-                    spatialController = instance.GetOrAddComponent<SpatialController>();
+                    spatialController = instance.AddComponent<SpatialController>();
                 }
             }
             else if (spatialController != null)
@@ -207,6 +207,28 @@ namespace Stui.Prefabs
                 DestroyImmediate(spatialController);
 
                 spatialController = null;
+            }
+
+            bool needDependencyResolver =
+                needSpatialController ||
+                entityInfo.boneInfos.Values.Any(i => i.hasVirtualParent) ||
+                entityInfo.objectInfos.Values.Any(i => i.hasVirtualParent);
+
+            DependencyResolver dependencyResolver;
+            instance.TryGetComponent(out dependencyResolver);
+
+            if (needDependencyResolver)
+            {
+                if (dependencyResolver == null)
+                {
+                    dependencyResolver = instance.AddComponent<DependencyResolver>();
+                }
+            }
+            else if (dependencyResolver != null)
+            {
+                DestroyImmediate(dependencyResolver);
+
+                dependencyResolver = null;
             }
 
             var transforms = new Dictionary<string, Transform>(); //All of the bones and sprites, identified by Timeline.name, because those are truly unique
@@ -300,6 +322,12 @@ namespace Stui.Prefabs
 
             FinalizeVirtualParentProcessing(entityInfo, transforms);
             ProcessCharacterMaps(entity, instance, folders);
+
+            if (dependencyResolver != null)
+            {
+                dependencyResolver.MarkDirty();
+                yield return null; // Allow the dependencyResolver to update.
+            }
 
             EditorUtility.SetDirty(instance);
 

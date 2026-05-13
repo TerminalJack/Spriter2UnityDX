@@ -14,7 +14,6 @@ namespace Stui
     // game objects that are children of the bones, with virtual parents being taken into consideration.
 
     [ExecuteAlways]
-    [DefaultExecutionOrder(20)] // Needs to run after VirtualParent.
     public class AlphaController : MonoBehaviour
     {
         [Tooltip("Controls the transparency of this bone or sprite renderer.")]
