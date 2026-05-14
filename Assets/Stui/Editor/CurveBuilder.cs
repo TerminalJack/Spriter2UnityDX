@@ -413,7 +413,11 @@ namespace Stui
                     if (isFlat || isStep)
                     {
                         // Safe to remove.
-                        removeIndices ??= new List<int>();
+                        if (removeIndices == null)
+                        {
+                            removeIndices = new List<int>();
+                        }
+
                         removeIndices.Add(i);
                     }
                 }

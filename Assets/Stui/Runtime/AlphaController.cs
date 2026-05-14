@@ -133,12 +133,10 @@ namespace Stui
                     _cachedVersions.Add(vp.Version);
 
                     // Follow virtual parent redirection.  Note that this component will run during an import and, in
-                    // that case, the possibleParents list can be empty for a short time.  We guard against that here.
-                    // We rely on the 'version' changing once the list is updated.
+                    // that case, the virtual parent's possibleParents list can be empty for a short time.  The
+                    // following call will return the real parent in that case, which is fine for importing.
 
-                    t = vp.PossibleParents.Count > 0
-                        ? vp.PossibleParents[vp.ParentIndex]
-                        : t.parent;
+                    t = vp.GetVirtualParentTransform();
                 }
                 else
                 {

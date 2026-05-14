@@ -56,6 +56,8 @@ You may notice that the imported prefabs pop-up in the scene view during process
 
 Once the import is complete, check the folder for newly created prefab files.  There will be one for each entity in the `.scml` file(s).  If you click on one of these prefabs you will see that its preview image is generated from the first frame of the entity's first animation.
 
+> If the preview image is completely dark then you are likely using URP with lit materials as the default material type.  Unity, for whatever reason, doesn't use any lighting in the preview window and it doesn't give you an option to do so.
+
 Drop one of these prefabs into the `Scene` view.  Open Unity's `Animation` window.  Select the game object (the instantiated prefab) in the `Scene` view and select an animation clip in the `Animation` window.  Hit the play animation button (▶️) and the animation will play.
 
 >This assumes that that particular clip actually had an animation.  Creators wll often use one or more Spriter animations as a static guideline or template, from which they base their actual animations off of.  If the clip doesn't actually animate anything then try another one.

@@ -1844,8 +1844,8 @@ namespace Stui.Animations
             var rv = new Dictionary<ChangedValues, AnimationCurve>();
 
             SpriterInfoBase spriterInfo = (defaultInfo is SpriteInfo)
-                ? entityInfo.objectInfos[child.name]
-                : entityInfo.boneInfos[child.name];
+                ? (SpriterInfoBase)entityInfo.objectInfos[child.name] // No, the cast isn't redundant.  Not for C# 7.3.
+                : (SpriterInfoBase)entityInfo.boneInfos[child.name];
 
             SpatialAdapter spatialAdapter = spriterInfo.spatialAdapter;
             ScaleTracker scaleTracker = spriterInfo.scaleTracker;
@@ -1950,8 +1950,9 @@ namespace Stui.Animations
                     {
                         Debug.LogWarning($"For entity: {entityInfo.EntityName}, animation: {animation.name}, " +
                             $"timeline: {child.name}, time: {key.time_s}, a virtual parent change was detected but a " +
-                            "VirtualParent component wasn't setup.  This may be due to corruption in the Spriter " +
-                            "file or a programming error.");
+                            "VirtualParent component wasn't setup.  This is likely due to there being timeline keys " +
+                            "without a corresponding entry in <bone_ref> or <object_ref>.  This warning can likely " +
+                            "ignored.");
                     }
                 }
 

@@ -19,7 +19,6 @@ namespace Stui
         public bool IsVisible = false;
 
         private SpriteRenderer _spriteRenderer;
-        private bool _lastIsVisible = true; // Note: Using this roughly doubles the speed of ApplyVisibility().
 
         void OnEnable()
         {
@@ -44,9 +43,8 @@ namespace Stui
 
         private void ApplyVisibility()
         {
-            if (_spriteRenderer != null && _lastIsVisible != IsVisible)
+            if (_spriteRenderer != null)
             {
-                _lastIsVisible = IsVisible;
                 _spriteRenderer.enabled = IsVisible;
             }
         }
