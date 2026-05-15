@@ -237,8 +237,10 @@ namespace Stui.Prefabs
             var defaultBones = new Dictionary<string, SpatialInfo>();  // These are basically the object states on the first frame of the first animation
             var defaultSprites = new Dictionary<string, SpriteInfo>(); // They are used as control values in determining whether something has changed
             var defaultActionPoints = new Dictionary<string, SpatialInfo>();
+            var defaultCollisionRectangles = new Dictionary<string, SpriteInfo>();
 
-            var animBuilder = new AnimationBuilder(ProcessingInfo, folders, transforms, defaultBones, defaultSprites, defaultActionPoints, prefabPath, controller, entityInfo);
+            var animBuilder = new AnimationBuilder(ProcessingInfo, folders, transforms, defaultBones, defaultSprites,
+                defaultActionPoints, defaultCollisionRectangles, prefabPath, controller, entityInfo);
             var firstAnim = true; //The prefab's graphic will be determined by the first frame of the first animation
 
             if (buildCtx.IsCanceled) { yield break; }
@@ -296,6 +298,12 @@ namespace Stui.Prefabs
                     yield return $"{buildCtx.MessagePrefix}, mainline key time: {key.time_s}, processing action points";
 
                     ProcessActionPoints(parents, transforms, animation, timelines, key, defaultBones, defaultActionPoints, entityInfo);
+
+                    if (buildCtx.IsCanceled) { yield break; }
+                    yield return $"{buildCtx.MessagePrefix}, mainline key time: {key.time_s}, processing collision rectangles";
+
+                    ProcessCollisionRectangles(parents, transforms, animation, timelines, key, defaultBones,
+                        defaultCollisionRectangles, entityInfo, entity, firstAnim);
 
                     firstAnim = false;
                 }
@@ -1045,7 +1053,7 @@ namespace Stui.Prefabs
                 ProcessObjectScopedMetadata(child, spriterObjectInfo);
 
                 // If a pivot controller is used then the sprite renderer has to go on a child game object.
-                string spriteRendererName = spriterObjectInfo.spriteRenderTransformName;
+                string spriteRendererName = spriterObjectInfo.spriteRendererTransformName;
                 var rendererTransform = needsPivotController ? child.Find(spriteRendererName) : child;
 
                 if (needsPivotController && rendererTransform == null)
@@ -1214,6 +1222,134 @@ namespace Stui.Prefabs
 
                     spriterObjectInfo.spatialAdapter = spatialAdapter;
                 }
+
+                ProcessObjectScopedMetadata(child, spriterObjectInfo);
+            }
+        }
+
+        private void ProcessCollisionRectangles(Dictionary<int, string> parents, Dictionary<string, Transform> transforms,
+            Animation animation, Dictionary<int, Timeline> timelines, MainlineKey key,
+            Dictionary<string, SpatialInfo> defaultBones, Dictionary<string, SpriteInfo> defaultCollisionRectangles,
+            SpriterEntityInfo entityInfo, Entity entity, bool firstAnim)
+        {
+            foreach (var oref in key.objectRefs)
+            {
+                var timeline = timelines[oref.timelineId];
+
+                SpriterObjectInfo spriterObjectInfo;
+                entityInfo.objectInfos.TryGetValue(timeline.name, out spriterObjectInfo);
+
+                if (spriterObjectInfo == null || spriterObjectInfo.type != ObjectType.box)
+                {   // Don't log a warning if this was one of the unsupported Spriter object types.
+                    if (spriterObjectInfo == null)
+                    {
+                        Debug.LogWarning($"Stui: ProcessCollisionRectangles() was unable to find object info for " +
+                            $"collision rectangle '{timeline.name}'.");
+                    }
+
+                    continue;
+                }
+
+                if (transforms.ContainsKey(timeline.name))
+                {
+                    continue;
+                }
+
+                var parentName = parents[oref.parentRefId];
+                var parentTransform = transforms[parentName];
+
+                ProcessVirtualParent(parentName, ref parentTransform, spriterObjectInfo);
+
+                var child = parentTransform.Find(timeline.name);
+                if (child == null)
+                {
+                    child = new GameObject(timeline.name).transform;
+                }
+
+                child.SetParent(parentTransform);
+                transforms[timeline.name] = child; // Note that virtual parents and colliders w/ a pivot parent aren't added to this.
+
+                var boxInfo = defaultCollisionRectangles[timeline.name] = (SpriteInfo)timeline.keys[0].info;
+
+                if (!boxInfo.haveBaked && SpriterEntityInfo.IsBakedBoneOrObject(spriterObjectInfo, animation))
+                {
+                    SpatialInfo parentInfo;
+                    defaultBones.TryGetValue(parentName, out parentInfo); // 'parentName' may be grandparent if a virtual parent was created.
+                    boxInfo.Bake(parentInfo);
+                }
+
+                // The transform gets initialized with the baked or unbaked, regardless.  If a Spatial Adapter
+                // is used then it will initialize the position and scale when it is enabled.
+                child.localPosition = new Vector3(boxInfo.x, boxInfo.y, 0f);
+                child.localEulerAngles = new Vector3(0f, 0f, boxInfo.angle);
+                child.localScale = new Vector3(boxInfo.scale_x, boxInfo.scale_y, 1f);
+
+                SpatialAdapter spatialAdapter;
+                child.gameObject.TryGetComponent(out spatialAdapter);
+
+                if (SpriterEntityInfo.UseTransformForPositionAndScale(spriterObjectInfo))
+                {   // The Transform's Position and Scale are always used for animating this collision rectangle and
+                    // they will always be baked.  Remove any preexisting Spatial Adapter.
+                    if (spatialAdapter != null)
+                    {
+                        DestroyImmediate(spatialAdapter);
+                    }
+                }
+                else
+                {   // The SpatialAdapter's Position and Scale are always used for animating this collision rectangle.
+                    // The position and scale may be baked or not, depending on the animation.
+                    if (spatialAdapter == null)
+                    {
+                        spatialAdapter = child.gameObject.AddComponent<SpatialAdapter>();
+                    }
+
+                    spatialAdapter.Position = new Vector2(boxInfo.x, boxInfo.y);
+                    spatialAdapter.Scale = new Vector2(boxInfo.scale_x, boxInfo.scale_y);
+
+                    spriterObjectInfo.spatialAdapter = spatialAdapter;
+                }
+
+                ProcessObjectScopedMetadata(child, spriterObjectInfo);
+
+                var rigidBody2D = child.GetOrAddComponent<Rigidbody2D>();
+
+                rigidBody2D.bodyType = RigidbodyType2D.Kinematic;
+                rigidBody2D.simulated = true;
+                rigidBody2D.useFullKinematicContacts = true;
+                rigidBody2D.collisionDetectionMode = CollisionDetectionMode2D.Discrete;
+                rigidBody2D.sleepMode = RigidbodySleepMode2D.NeverSleep;
+                rigidBody2D.interpolation = RigidbodyInterpolation2D.None;
+
+                var colliderInfo = (
+                    from objInfo in entity.objectInfos
+                    where objInfo.name == timeline.name && objInfo.objectType == ObjectType.box
+                    select objInfo
+                )
+                .FirstOrDefault();
+
+                if (colliderInfo == null)
+                {
+                    Debug.LogWarning("Stui: ProcessCollisionRectangles() was unable to find an ObjectInfo entry " +
+                        $"for collision rectangle '{timeline.name}'.");
+                }
+
+                var collider = child.GetOrAddComponent<BoxCollider2D>();
+
+                collider.isTrigger = true;
+                collider.offset = colliderInfo != null
+                    ? new Vector2(
+                        (0.5f - boxInfo.pivot_x) * colliderInfo.width,
+                        (0.5f - boxInfo.pivot_y) * colliderInfo.height)
+                    : Vector2.zero;
+                collider.size = colliderInfo != null
+                    ? new Vector2(colliderInfo.width, colliderInfo.height)
+                    : new Vector2(0f, 0f);
+
+                var collisionRectangle = child.GetOrAddComponent<CollisionRectangle>();
+
+                // Disable the collider if this isn't the first frame of the first animation
+                collider.enabled = firstAnim;
+                collisionRectangle.ColliderEnabled = firstAnim;
             }
         }
 

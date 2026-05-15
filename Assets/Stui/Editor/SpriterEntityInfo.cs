@@ -73,14 +73,14 @@ namespace Stui.EntityInfo
 
     public class SpriterObjectInfo : SpriterInfoBase
     {
-        public string spriteRenderTransformName;
+        public string spriteRendererTransformName;
         public bool hasPivotController;
         public string pivotControllerTransformName; // Set even if there isn't one so ones from prior imports can be found.
 
         public SpriterObjectInfo(string _name, ObjectType _type)
             : base(_name, _type)
         {
-            spriteRenderTransformName = _name; // This will change if there is a pivot parent.
+            spriteRendererTransformName = _name; // This will change if there is a pivot parent.
             pivotControllerTransformName = _name;
         }
     }
@@ -208,6 +208,10 @@ namespace Stui.EntityInfo
             if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, preprocessing action points";
             PreprocessActionPoints(entity); // Adds to objectInfo collection.
+
+            if (buildCtx.IsCanceled) { yield break; }
+            yield return $"{buildCtx.MessagePrefix}, preprocessing collision rectangles";
+            PreprocessCollisionRectangles(entity);
 
             if (buildCtx.IsCanceled) { yield break; }
             yield return $"{buildCtx.MessagePrefix}, preprocessing Spriter events";
@@ -495,7 +499,7 @@ namespace Stui.EntityInfo
             var namesOfBonesWithAnimatedScales = boneScaleInfos.Select(i => i.boneName).Distinct().OrderBy(n => n).ToList();
 
             SetupBonesWithAnimatedBoneScales(entity, namesOfBonesWithAnimatedScales);
-            SetupSpritesWithAnimatedBoneScales(entity, namesOfBonesWithAnimatedScales);
+            SetupObjectsWithAnimatedBoneScales(entity, namesOfBonesWithAnimatedScales);
         }
 
         private void SetupBonesWithAnimatedBoneScales(Entity entity, List<string> namesOfBonesWithAnimatedScales)
@@ -566,7 +570,6 @@ namespace Stui.EntityInfo
             {
                 Log($"    bone name: '{boneName}'");
             }
-
         }
 
         private void MarkAncestorsForScaleTracker(SpriterBoneInfo parentBoneInfo, int depth)
@@ -593,37 +596,80 @@ namespace Stui.EntityInfo
             }
         }
 
-        private void SetupSpritesWithAnimatedBoneScales(Entity entity, List<string> namesOfBonesWithAnimatedScales)
+        private void SetupObjectsWithAnimatedBoneScales(Entity entity, List<string> namesOfBonesWithAnimatedScales)
         {
-            foreach (var spriteInfo in objectInfos.Values.Where(i => i.type == ObjectType.sprite))
+            // Some bones have already been setup with scale trackers.  Save their names.
+            var boneNamesAlreadyWithScaleTrackers = boneInfos.Values
+                .Where(i => i.needsScaleTracker)
+                .OrderBy(i => i.name)
+                .Select(i => i.name)
+                .ToList();
+
+            foreach (var objInfo in objectInfos.Values.Where(i => i.type == ObjectType.sprite || i.type == ObjectType.box))
             {
-                // If this sprite has any ancestor bones that use animated bone scales then the sprite will be marked
-                // as having them as well.
-                foreach (var parentBoneName in spriteInfo.parentBoneNames)
+                // If this sprite or collision rectangle has any ancestor bones that use animated bone scales then the
+                // sprite/box will be marked as having them as well.
+                foreach (var parentBoneName in objInfo.parentBoneNames)
                 {
                     if (BoneHasAnimatedScales(entity, namesOfBonesWithAnimatedScales, parentBoneName, depth: 0))
                     {
-                        spriteInfo.needsSpatialAdapter = true;
+                        objInfo.needsSpatialAdapter = true;
                         break;
                     }
                 }
             }
 
-            var spriteNamesWithAnimatedBoneScales = objectInfos.Values
+            var objectNamesWithAnimatedBoneScales = objectInfos.Values
                 .Where(i => i.needsSpatialAdapter)
                 .OrderBy(i => i.name)
                 .Select(i => i.name)
                 .ToList();
 
-            if (spriteNamesWithAnimatedBoneScales.Count > 0)
+            if (objectNamesWithAnimatedBoneScales.Count > 0)
             {
-                Log($"Entity '{entity.name}' has the following sprites that may require a spatial adapter due " +
+                Log($"Entity '{entity.name}' has the following objects that may require a spatial adapter due " +
                     "to having one or more ancestor bones that have an animated scale:");
             }
 
-            foreach (var spriteName in spriteNamesWithAnimatedBoneScales)
+            foreach (var objectName in objectNamesWithAnimatedBoneScales)
             {
-                Log($"    sprite name: '{spriteName}'");
+                Log($"    sprite name: '{objectName}'");
+            }
+
+            // For each of the objects in objectNamesWithAnimatedBoneScales, walk up their hierarchy to the root and
+            // mark any ancestors as needing a scale tracker if they aren't already marked as needing a spatial adapter...
+            foreach (var objectName in objectNamesWithAnimatedBoneScales)
+            {
+                foreach (var parentBoneName in objectInfos[objectName].parentBoneNames)
+                {
+                    // Note: "rootTransform" will be a parent but won't be in boneInfos.
+                    var parentBoneInfo = boneInfos.GetOrDefault(parentBoneName);
+
+                    if (parentBoneInfo != null)
+                    {
+                        MarkAncestorsForScaleTracker(parentBoneInfo, depth: 0);
+                    }
+                }
+            }
+
+            // This will be the bone names we just added, if any.
+            var newBoneNamesWithScaleTrackers = boneInfos.Values
+                .Where(i => i.needsScaleTracker && !boneNamesAlreadyWithScaleTrackers.Exists(n => n == i.name))
+                .OrderBy(i => i.name)
+                .Select(i => i.name)
+                .ToList();
+
+            if (newBoneNamesWithScaleTrackers.Count > 0)
+            {
+                string note = boneNamesAlreadyWithScaleTrackers.Count > 0 ? "(additional) " : "";
+
+                Log($"Entity '{entity.name}', has the following {note}bones that may need a scale tracker due " +
+                    "to being an ancestor of one or more objects that use a spatial adapter:");
+            }
+
+            foreach (var boneName in newBoneNamesWithScaleTrackers)
+            {
+                Log($"    bone name: '{boneName}'");
             }
         }
 
@@ -974,6 +1020,13 @@ namespace Stui.EntityInfo
             {
                 DoPreprocessObjectScopedMetadata(scmlObject, entity, actionPtInfo);
             }
+
+            Log($"Entity: '{entity.name}', preprocessing object-scoped metadata for all collision rectangles...");
+
+            foreach (var collisionRectangleInfo in objectInfos.Values.Where(o => o.type == ObjectType.box))
+            {
+                DoPreprocessObjectScopedMetadata(scmlObject, entity, collisionRectangleInfo);
+            }
         }
 
         private void DoPreprocessObjectScopedMetadata(ScmlObject scmlObject, Entity entity, SpriterInfoBase info)
@@ -1269,6 +1322,16 @@ namespace Stui.EntityInfo
                     DoAssignObjectScopedMetadataReferences(scmlObject, entity, actionPtInfo);
                 }
             }
+
+            Log($"Entity '{entity.name}', assigning object-scoped metadata references for all collision rectangles...");
+
+            foreach (var collisionRectangleInfo in objectInfos.Values.Where(o => o.type == ObjectType.box))
+            {
+                if (collisionRectangleInfo.hasMetadata)
+                {
+                    DoAssignObjectScopedMetadataReferences(scmlObject, entity, collisionRectangleInfo);
+                }
+            }
         }
 
         private void DoAssignObjectScopedMetadataReferences(ScmlObject scmlObject, Entity entity, SpriterInfoBase info)
@@ -1424,13 +1487,20 @@ namespace Stui.EntityInfo
                 .Distinct()
                 .ToList();
 
-            Log($"Entity '{entity.name}' has the following bones:");
-
-            foreach (var boneName in allBoneNames)
+            if (allBoneNames.Count > 0)
             {
-                Log($"    '{boneName}'");
+                Log($"Entity '{entity.name}' has the following bones:");
 
-                boneInfos.Add(boneName, new SpriterBoneInfo(boneName, ObjectType.bone));
+                foreach (var boneName in allBoneNames)
+                {
+                    Log($"    '{boneName}'");
+
+                    boneInfos.Add(boneName, new SpriterBoneInfo(boneName, ObjectType.bone));
+                }
+            }
+            else
+            {
+                Log($"Entity '{entity.name}' has no bones.");
             }
         }
 
@@ -1445,13 +1515,20 @@ namespace Stui.EntityInfo
                 .Distinct()
                 .ToList();
 
-            Log($"Entity '{entity.name}' has the following sprites:");
-
-            foreach (var spriteName in allSpriteNames)
+            if (allSpriteNames.Count > 0)
             {
-                Log($"    '{spriteName}'");
+                Log($"Entity '{entity.name}' has the following sprites:");
 
-                objectInfos.Add(spriteName, new SpriterObjectInfo(spriteName, ObjectType.sprite));
+                foreach (var spriteName in allSpriteNames)
+                {
+                    Log($"    '{spriteName}'");
+
+                    objectInfos.Add(spriteName, new SpriterObjectInfo(spriteName, ObjectType.sprite));
+                }
+            }
+            else
+            {
+                Log($"Entity '{entity.name}' has no sprites.");
             }
         }
 
@@ -1480,6 +1557,34 @@ namespace Stui.EntityInfo
             else
             {
                 Log($"Entity '{entity.name}' has no action points.");
+            }
+        }
+
+        private void PreprocessCollisionRectangles(Entity entity)
+        {
+            // Populate the objectInfo collection with any collision rectangles...
+            var allCollisionRectangleNames =
+                (from anim in entity.animations
+                 from tl in anim.timelines
+                 where tl.objectType == ObjectType.box
+                 select tl.name)
+                .Distinct()
+                .ToList();
+
+            if (allCollisionRectangleNames.Count > 0)
+            {
+                Log($"Entity '{entity.name}' has the following collision rectangles:");
+
+                foreach (var collisionRectangleName in allCollisionRectangleNames)
+                {
+                    Log($"    '{collisionRectangleName}'");
+
+                    objectInfos.Add(collisionRectangleName, new SpriterObjectInfo(collisionRectangleName, ObjectType.box));
+                }
+            }
+            else
+            {
+                Log($"Entity '{entity.name}' has no collision rectangles.");
             }
         }
 
@@ -1598,6 +1703,7 @@ namespace Stui.EntityInfo
                  from tl in anim.timelines
                  where tl.objectType != ObjectType.sprite && tl.objectType != ObjectType.bone
                     && tl.objectType != ObjectType.point && tl.objectType != ObjectType.spriterEvent
+                    && tl.objectType != ObjectType.box
                  select new { tl.name, tl.objectType })
                 .Distinct()
                 .ToList();
@@ -1676,7 +1782,7 @@ namespace Stui.EntityInfo
 
                 objectInfos[spriteName].hasPivotController = true;
                 objectInfos[spriteName].pivotControllerTransformName = spriteName;
-                objectInfos[spriteName].spriteRenderTransformName = spriteName + " renderer";
+                objectInfos[spriteName].spriteRendererTransformName = spriteName + " renderer";
             }
         }
 

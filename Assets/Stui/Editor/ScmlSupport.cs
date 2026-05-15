@@ -68,11 +68,43 @@ namespace Stui.Importing
 
     public class ObjectInfo : ScmlElement
     {
-        [XmlAttribute] public string name { get; set; }
+        [XmlAttribute] public string realname { get; set; }
+
+        string _name;
+
+        [XmlAttribute] public string name
+        {
+            get { return string.IsNullOrEmpty(realname) ? _name : realname; }
+            set { _name = value; }
+        }
+
         [XmlAttribute("type")] public ObjectType objectType;
 
-        [XmlAttribute("w")] public float width;
-        [XmlAttribute("h")] public float height;
+        float _width;
+
+        [XmlAttribute("w")] public float width
+        {
+            get { return _width; }
+            set
+            {
+                _width = ScmlImportOptions.options != null
+                    ? value / ScmlImportOptions.options.pixelsPerUnit // Convert Spriter space into Unity space using pixelsPerUnit
+                    : value * 0.01f;
+            }
+        }
+
+        float _height;
+
+        [XmlAttribute("h")] public float height
+        {
+            get { return _height; }
+            set
+            {
+                _height = ScmlImportOptions.options != null
+                    ? value / ScmlImportOptions.options.pixelsPerUnit // Convert Spriter space into Unity space using pixelsPerUnit
+                    : value * 0.01f;
+            }
+        }
 
         [XmlAttribute("pivot_x")] public float pivot_x;
         [XmlAttribute("pivot_y")] public float pivot_y;

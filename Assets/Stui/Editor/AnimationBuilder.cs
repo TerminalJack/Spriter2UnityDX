@@ -40,6 +40,7 @@ namespace Stui.Animations
         private IDictionary<string, SpatialInfo> DefaultBones;
         private IDictionary<string, SpriteInfo> DefaultSprites;
         private IDictionary<string, SpatialInfo> DefaultActionPoints;
+        private IDictionary<string, SpriteInfo> DefaultCollisionRectangles;
         private AnimatorController Controller;
         private bool ModdedController = false;
         private SpriterEntityInfo entityInfo;
@@ -47,8 +48,8 @@ namespace Stui.Animations
         public AnimationBuilder(ScmlProcessingInfo info, IDictionary<int, IDictionary<int, Sprite>> folders,
                                  IDictionary<string, Transform> transforms, IDictionary<string, SpatialInfo> defaultBones,
                                  IDictionary<string, SpriteInfo> defaultSprites, IDictionary<string, SpatialInfo> defaultActionPoints,
-                                 string prefabPath, AnimatorController controller,
-                                 SpriterEntityInfo _entityInfo)
+                                 IDictionary<string, SpriteInfo> defaultCollisionRectangles, string prefabPath,
+                                 AnimatorController controller, SpriterEntityInfo _entityInfo)
         {
             ProcessingInfo = info;
             Folders = folders;
@@ -57,6 +58,7 @@ namespace Stui.Animations
             DefaultBones = defaultBones;
             DefaultSprites = defaultSprites;
             DefaultActionPoints = defaultActionPoints;
+            DefaultCollisionRectangles = defaultCollisionRectangles;
             entityInfo = _entityInfo;
 
             Root = Transforms["rootTransform"];
@@ -168,13 +170,28 @@ namespace Stui.Animations
                             pendingTransforms.Remove(timeline.name);
                         }
                     }
+                    else if (timeline.objectType == ObjectType.box)
+                    {
+                        Transform boxTransform;
+
+                        if (pendingTransforms.TryGetValue(timeline.name, out boxTransform))
+                        {
+                            if (buildCtx.IsCanceled) { yield break; }
+                            yield return $"{buildCtx.MessagePrefix}, collision rectangle: '{timeline.name}', creating animation curves";
+
+                            SetCurves(boxTransform, DefaultCollisionRectangles[timeline.name], timeline, clip, animation);
+                            CreateColliderEnabledCurve(boxTransform, animation.mainlineKeys, timeline, clip);
+
+                            pendingTransforms.Remove(timeline.name);
+                        }
+                    }
                 }
             }
 
             if (pendingTransforms.Count > 0)
             {
                 if (buildCtx.IsCanceled) { yield break; }
-                yield return $"{buildCtx.MessagePrefix}, hiding all sprite renderers that are not used in this animation";
+                yield return $"{buildCtx.MessagePrefix}, hiding all sprite renderers and collision rectangles that are not used in this animation";
 
                 yield return null; // Wait for next frame so the display of status messages can catch up.
 
@@ -184,12 +201,31 @@ namespace Stui.Animations
                     {
                         // The SpriteVisibility component is on this game object or a child.
                         var visibilityComponent = kvPair.Value.GetComponentInChildren<SpriteVisibility>(includeInactive: true);
-                        var visibilityComponentTransformPath = GetPathToChild(visibilityComponent.transform);
-                        var binding = EditorCurveBinding.FloatCurve(visibilityComponentTransformPath, typeof(SpriteVisibility),
-                            nameof(SpriteVisibility.IsVisible));
-                        var curve = new AnimationCurve(new Keyframe(0f, 0f, inf, inf));
 
-                        AnimationUtility.SetEditorCurve(clip, binding, curve);
+                        if (visibilityComponent != null && visibilityComponent.IsVisible)
+                        {
+                            var visibilityComponentTransformPath = GetPathToChild(visibilityComponent.transform);
+                            var binding = EditorCurveBinding.FloatCurve(visibilityComponentTransformPath, typeof(SpriteVisibility),
+                                nameof(SpriteVisibility.IsVisible));
+                            var curve = new AnimationCurve(new Keyframe(0f, 0f, inf, inf));
+
+                            AnimationUtility.SetEditorCurve(clip, binding, curve);
+                        }
+                    }
+
+                    if (DefaultCollisionRectangles.ContainsKey(kvPair.Key))
+                    {
+                        var colliderComponent = kvPair.Value.GetComponent<CollisionRectangle>();
+
+                        if (colliderComponent != null && colliderComponent.ColliderEnabled)
+                        {
+                            var colliderComponentTransformPath = GetPathToChild(colliderComponent.transform);
+                            var binding = EditorCurveBinding.FloatCurve(colliderComponentTransformPath, typeof(CollisionRectangle),
+                                nameof(CollisionRectangle.ColliderEnabled));
+                            var curve = new AnimationCurve(new Keyframe(0f, 0f, inf, inf));
+
+                            AnimationUtility.SetEditorCurve(clip, binding, curve);
+                        }
                     }
                 }
             }
@@ -872,6 +908,14 @@ namespace Stui.Animations
                         CreatePivotYCurve(childPath, timeline, clip, animation, curve: kvPair.Value);
                         break;
 
+                    case ChangedValues.BoxPivotX:
+                        CreateBoxPivotXCurve(childPath, timeline, clip, animation, curve: kvPair.Value, child);
+                        break;
+
+                    case ChangedValues.BoxPivotY:
+                        CreateBoxPivotYCurve(childPath, timeline, clip, animation, curve: kvPair.Value, child);
+                        break;
+
                     case ChangedValues.VirtualParent:
                         CreateVirtualParentCurve(childPath, timeline, clip, animation, curve: kvPair.Value, child);
                         break;
@@ -1028,6 +1072,34 @@ namespace Stui.Animations
             var pivotYPropName = $"{nameof(DynamicPivot2D.Pivot)}.{nameof(DynamicPivot2D.Pivot.y)}";
             var pivotYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(DynamicPivot2D), pivotYPropName);
             AnimationUtility.SetEditorCurve(clip, pivotYBinding, curve);
+        }
+
+        private void CreateBoxPivotXCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve, Transform child)
+        {
+            if (child.TryGetComponent<BoxCollider2D>(out var boxCollider2D))
+            {
+                var colliderWidth = boxCollider2D.size.x;
+                Func<SpriteInfo, float> calcPivotX = boxInfo => (0.5f - boxInfo.pivot_x) * colliderWidth;
+
+                SetKeys<SpriteInfo>(curve, timeline, calcPivotX, animation, mainlineBlending: false, CurveType.instant);
+                var pivotXBinding = EditorCurveBinding.FloatCurve(childPath, typeof(BoxCollider2D), "m_Offset.x");
+                AnimationUtility.SetEditorCurve(clip, pivotXBinding, curve);
+            }
+        }
+
+        private void CreateBoxPivotYCurve(string childPath, Timeline timeline, AnimationClip clip,
+            Animation animation, AnimationCurve curve, Transform child)
+        {
+            if (child.TryGetComponent<BoxCollider2D>(out var boxCollider2D))
+            {
+                var colliderHeight = boxCollider2D.size.y;
+                Func<SpriteInfo, float> calcPivotY = boxInfo => (0.5f - boxInfo.pivot_y) * colliderHeight;
+
+                SetKeys<SpriteInfo>(curve, timeline, calcPivotY, animation, mainlineBlending: false, CurveType.instant);
+                var pivotYBinding = EditorCurveBinding.FloatCurve(childPath, typeof(BoxCollider2D), "m_Offset.y");
+                AnimationUtility.SetEditorCurve(clip, pivotYBinding, curve);
+            }
         }
 
         private void CreateVirtualParentCurve(string childPath, Timeline timeline, AnimationClip clip,
@@ -1289,6 +1361,66 @@ namespace Stui.Animations
                 var visibilityComponentTransformPath = GetPathToChild(visibilityComponent.transform);
                 var binding = EditorCurveBinding.FloatCurve(visibilityComponentTransformPath, typeof(SpriteVisibility),
                     nameof(SpriteVisibility.IsVisible));
+
+                AnimationUtility.SetEditorCurve(clip, binding, curve);
+            }
+        }
+
+        private void CreateColliderEnabledCurve(Transform child, List<MainlineKey> mlks, Timeline timeline, AnimationClip clip)
+        {
+            var collisionComponent = child.GetComponent<CollisionRectangle>();
+            var colliderEnabledBindPoseValue = collisionComponent.ColliderEnabled;
+
+            var enabledInfos =
+            (
+                from mlk in mlks
+
+                // Find the timeline key (if any) that this mainline key references
+                let tlk = (
+                    from k in timeline.keys
+                    where mlk.objectRefs.Any(or =>
+                        or.timelineId == timeline.id &&
+                        or.timelineKeyId == k.id)
+                    select k
+                ).FirstOrDefault()
+
+                select new
+                {
+                    mlk.time_s,
+                    isEnabled = tlk != null // Is collision rectable enabled at time_s?
+                }
+            )
+            .ToList();
+
+            // There will be one enabledInfos element for each key in mainline keys.
+
+            bool isEnabledForAllKeys = enabledInfos.Exists(vi => !vi.isEnabled) == false;
+            bool isNotEnabledForAllKeys = enabledInfos.Exists(vi => vi.isEnabled) == false;
+            bool isMixedEnabled = !isEnabledForAllKeys && !isNotEnabledForAllKeys;
+
+            // A curve needs to be created if the flag changes or if it doesn't but the flag is different than the
+            // bind pose value.
+            bool needCurve = isMixedEnabled || (colliderEnabledBindPoseValue ? isNotEnabledForAllKeys : isEnabledForAllKeys);
+
+            if (needCurve)
+            {
+                var enabledKeyFrames = new List<Keyframe>();
+
+                for (int i = 0; i < enabledInfos.Count; ++i)
+                {
+                    // Filter-out redundant keyframes.
+                    if (i == 0 || enabledInfos[i].isEnabled != enabledInfos[i - 1].isEnabled)
+                    {
+                        enabledKeyFrames.Add(new Keyframe(TweakTime(enabledInfos[i].time_s),
+                            enabledInfos[i].isEnabled ? 1f : 0f, inf, inf));
+                    }
+                }
+
+                var curve = new AnimationCurve(enabledKeyFrames.ToArray());
+
+                var collisionComponentTransformPath = GetPathToChild(collisionComponent.transform);
+                var binding = EditorCurveBinding.FloatCurve(collisionComponentTransformPath, typeof(CollisionRectangle),
+                    nameof(CollisionRectangle.ColliderEnabled));
 
                 AnimationUtility.SetEditorCurve(clip, binding, curve);
             }
@@ -1832,7 +1964,9 @@ namespace Stui.Animations
             SpatialScaleX,
             SpatialScaleY,
             RawScaleX,
-            RawScaleY
+            RawScaleY,
+            BoxPivotX,
+            BoxPivotY
         }
 
         private IDictionary<ChangedValues, AnimationCurve> GetCurves(Animation animation, Timeline timeline,
@@ -1959,21 +2093,37 @@ namespace Stui.Animations
                 var spriteDefaultInfo = defaultInfo as SpriteInfo;
 
                 if (spriteDefaultInfo != null)
-                {   // This is spatial data for a sprite...
-                    var sinfo = info as SpriteInfo;
-
-                    if (!rv.ContainsKey(ChangedValues.Sprite) && (spriteDefaultInfo.fileId != sinfo.fileId || spriteDefaultInfo.folderId != sinfo.folderId))
+                {
+                    if (timeline.objectType == ObjectType.box)
                     {
-                        rv[ChangedValues.Sprite] = new AnimationCurve();
+                        var boxInfo = info as SpriteInfo;
+                        var boxDefaultInfo = spriteDefaultInfo;
+
+                        if (!rv.ContainsKey(ChangedValues.BoxPivotX) &&
+                            (boxDefaultInfo.pivot_x != boxInfo.pivot_x || boxDefaultInfo.pivot_y != boxInfo.pivot_y))
+                        {
+                            rv[ChangedValues.BoxPivotX] = new AnimationCurve();
+                            rv[ChangedValues.BoxPivotY] = new AnimationCurve();
+                        }
                     }
-
-                    bool hasPivotController = (spriterInfo as SpriterObjectInfo).hasPivotController;
-
-                    if (!rv.ContainsKey(ChangedValues.PivotX) && hasPivotController &&
-                        (spriteDefaultInfo.pivot_x != sinfo.pivot_x || spriteDefaultInfo.pivot_y != sinfo.pivot_y))
+                    else
                     {
-                        rv[ChangedValues.PivotX] = new AnimationCurve();
-                        rv[ChangedValues.PivotY] = new AnimationCurve();
+                        // This is spatial data for a sprite...
+                        var sinfo = info as SpriteInfo;
+
+                        if (!rv.ContainsKey(ChangedValues.Sprite) && (spriteDefaultInfo.fileId != sinfo.fileId || spriteDefaultInfo.folderId != sinfo.folderId))
+                        {
+                            rv[ChangedValues.Sprite] = new AnimationCurve();
+                        }
+
+                        bool hasPivotController = (spriterInfo as SpriterObjectInfo).hasPivotController;
+
+                        if (!rv.ContainsKey(ChangedValues.PivotX) && hasPivotController &&
+                            (spriteDefaultInfo.pivot_x != sinfo.pivot_x || spriteDefaultInfo.pivot_y != sinfo.pivot_y))
+                        {
+                            rv[ChangedValues.PivotX] = new AnimationCurve();
+                            rv[ChangedValues.PivotY] = new AnimationCurve();
+                        }
                     }
                 }
             }

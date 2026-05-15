@@ -17,7 +17,7 @@ namespace Stui
         [Serializable]
         private class SpriterEventBinding
         {
-            public UnityEvent callback;
+            public UnityEvent callback = new UnityEvent();
         }
 
         // Hook events up in the Inspector via this property.

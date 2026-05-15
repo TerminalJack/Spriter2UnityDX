@@ -22,12 +22,15 @@ namespace Stui
         private readonly List<VirtualParent> _cachedVirtualParents = new List<VirtualParent>();
         private readonly List<int> _cachedVersions = new List<int>();
 
-        private bool _isSpriteOrPivot; // If false then the component is on a bone or action point.
+        private bool _isSpritePivotOrCollider; // If false then the component is on a bone or action point.
         private SpatialController _spatialController;
 
         void OnEnable()
         {
-            _isSpriteOrPivot = GetComponent<SpriteRenderer>() != null || GetComponent<DynamicPivot2D>() != null;
+            _isSpritePivotOrCollider =
+                GetComponent<SpriteRenderer>() != null ||
+                GetComponent<DynamicPivot2D>() != null ||
+                GetComponent<BoxCollider2D>() != null;
 
             // The animation curves will use the Spatial Controller component to control whether to use Spriter
             // scaling or not.  When importing, it should be created before any SpatialAdapter components.
@@ -73,7 +76,7 @@ namespace Stui
 
             transform.localPosition = Position * finalLocalScale;
 
-            transform.localScale = _isSpriteOrPivot
+            transform.localScale = _isSpritePivotOrCollider
                 ? new Vector3(
                     Scale.x * finalLocalScale.x,
                     Scale.y * finalLocalScale.y,
