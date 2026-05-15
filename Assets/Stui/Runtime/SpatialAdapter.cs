@@ -25,6 +25,15 @@ namespace Stui
         private bool _isSpritePivotOrCollider; // If false then the component is on a bone or action point.
         private SpatialController _spatialController;
 
+        void Awake()
+        {
+            if (!GetComponentInParent<DependencyResolver>())
+            {
+                Debug.LogWarning("A SpatialAdapter component was created but a DependencyResolver component wasn't " +
+                    "found.  The SpatialAdapter component will not work without a corresponding DependencyResolver.");
+            }
+        }
+
         void OnEnable()
         {
             _isSpritePivotOrCollider =

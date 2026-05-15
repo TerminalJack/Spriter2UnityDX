@@ -110,12 +110,12 @@ The importer currently supports the following Spriter features:
 * **Tags.** Spriter tags are a simple way of indicating that the entity is, or is not, in a particular state.  Spriter allows you to define as many tags as you need.  A tag is either active or not and this can be determined at runtime by the game designer.  Stay tuned for more information regarding this feature.
 * **Bone alpha.**  Spriter allows a *bone's* transparency (aka alpha) to be animated (or just have a value other than 1.)  This affects the sprites that are children of the bone.  In practice, it doesn't look very good due to all of the overlapping sprites but the feature is supported by the importer should you need it.
 * **Animated bone scales.**  Spriter and Unity handle bone scales differently.  The importer has an option to support this feature.  In the cases where a Spriter project uses this feature, enabling the option at the time of import will help ensure that Unity's playback matches that of Spriter.  If the option is disabled then bone scales will be baked-in for each keyframe.  This is more performant but could result in Unity animations that do not entirely match Spriter's animations.
+* **Collision rectangles.**  Spriter allows the animator to create box colliders that can be animated similar to how an image is animated.  When imported, these will be converted to a game object that has both a `BoxCollider2D` and a `Rigidbody2D` Unity component.  Stui will also place a `Collision Rectangle` component on the game object.  Animation curves will use this component to enable or disable the collider.  The component's inspector allows for design-time subscription to the various collision events.  An API is also provided for runtime subscription to these events.  Stay tuned for more information regarding this feature.
 
 ## Unsupported Spriter Features.
 
-The following Spriter features are not supported at this time:
+The following Spriter features are not supported and will likely not be supported in the future:
 
-* **Collision rectangles.**  Spriter allows the artist to create box colliders that can be animated similar to how an image is animated.
 * **SCON files.**  SCON files are an alternative to SCML files.  Stui works only with SCML files.  Spriter can easily convert a SCON file into a SCML file with its **File** | **Save As** feature.
 * **Sub-entities.**  Basically animations within animations.
 * **Texture Packer atlases.**  Stui works great with Unity's sprite atlases.  You are encouraged to use them instead.
@@ -167,15 +167,15 @@ To make character map changes at runtime, use the `Character Map Controller` API
 
 ### Properties
 
-#### `public List<string> activeMapNames`
+#### `public List<string> ActiveMapNames`
 
-`activeMapNames` holds the names of each of the active maps.  You can modify this list directly or use the convenience methods `Clear()`, `Add()`, and `Remove()`.  If you need to make a lot of changes at once then modifying the list directly will be more performant.  If you do modify the list directly then be sure to call `Refresh()` afterward to apply your changes.
+`ActiveMapNames` holds the names of each of the active maps.  You can modify this list directly or use the convenience methods `Clear()`, `Add()`, and `Remove()`.  If you need to make a lot of changes at once then modifying the list directly will be more performant.  If you do modify the list directly then be sure to call `Refresh()` afterward to apply your changes.
 
-#### `public List<CharacterMapping> availableMaps`
+#### `public List<CharacterMapping> AvailableMaps`
 
 This list contains all of the maps that are defined for this prefab.  These are determined by the corresponding Spriter entity.  If you need to make changes to this list then you are strongly encouraged to make them to the original Spriter file since any changes you make will be lost when/if you do a reimport.
 
-#### `public CharacterMapping baseMap`
+#### `public CharacterMapping BaseMap`
 
 This is a map that defines the prefab's default sprite mapping.  This is used as the base for all other maps.  It is applied before any other maps are applied.  You are advised to leave this as-is.  Any changes will likely break future reimports.
 
@@ -183,33 +183,33 @@ This is a map that defines the prefab's default sprite mapping.  This is used as
 
 #### `void Clear()`
 
-Removes all map names from the `activeMapNames` list and applies the change via `Refresh()`.  This will reset all of the sprites to the mapping defined in the `baseMap` property.
+Removes all map names from the `ActiveMapNames` list and applies the change via `Refresh()`.  This will reset all of the sprites to the mapping defined in the `BaseMap` property.
 
 ---
 
 #### `bool Add(string mapName)`
 
-Adds the map, `mapName`, to the end of the `activeMapNames` list and applies the change via `Refresh()`.  If `mapName` was already in the list then it will be removed from its current position and added to the end.
+Adds the map, `mapName`, to the end of the `ActiveMapNames` list and applies the change via `Refresh()`.  If `mapName` was already in the list then it will be removed from its current position and added to the end.
 
 **Returns**
 
-Returns `true` if successful.  Returns `false` if `mapName` is not a valid map name.  That is, it wasn't found in the `availableMaps` list.
+Returns `true` if successful.  Returns `false` if `mapName` is not a valid map name.  That is, it wasn't found in the `AvailableMaps` list.
 
 ---
 
 #### `bool Remove(string mapName)`
 
-Removes the map, `mapName`, from the `activeMapNames` list and applies the change via `Refresh()`.
+Removes the map, `mapName`, from the `ActiveMapNames` list and applies the change via `Refresh()`.
 
 **Returns**
 
-Returns `true` if `mapName` was successfully removed.  Returns `false` if `mapName` wasn't found in the `activeMapNames` list.
+Returns `true` if `mapName` was successfully removed.  Returns `false` if `mapName` wasn't found in the `ActiveMapNames` list.
 
 ---
 
 #### `void Refresh(bool logWarnings = true)`
 
-Applies all of the maps in the `activeMapNames` list.  The mapping defined in `baseMap` is applied first then each of the mappings in `activeMapNames` are applied.  If any map names in `activeMapNames` is invalid *and* `logWarnings` is `true`, then a warning will be logged to the console.
+Applies all of the maps in the `ActiveMapNames` list.  The mapping defined in `BaseMap` is applied first then each of the mappings in `ActiveMapNames` are applied.  If any map names in `ActiveMapNames` is invalid *and* `logWarnings` is `true`, then a warning will be logged to the console.
 
 ### `Dynamic Pivot 2D`
 
@@ -217,19 +217,7 @@ Applies all of the maps in the `activeMapNames` list.  The mapping defined in `b
 
 A Dynamic Pivot 2D component will be used in the case where--if in any of an entity's animations--a sprite uses a pivot point that is different than its default.  The entity's animation clips will then have animation curves that set the pivot's `X` and `Y` properties as appropriate.
 
-When a Dynamic Pivot 2D component is used the sprite renderer will be placed on a child transform and the pivot component will adjust the child transform's position to take the pivot point into account.  The animation curves that move, rotate, scale, and set the sprite's sort order will be done to the transform containing the pivot component and not the transform containing the sprite renderer, as is done normally.
-
-### `Sorting Order Updater`
-
-![Typical Sprite Renderer Example Image](docs/Images/TypicalSpriteRendererExample.png)
-
-This component is responsible for updating its corresponding sprite renderer's `Order in Layer` property, where larger values indicate sprites that are closer to the camera.  The `Sorting Order Updater` component will either be on the same game object as the sprite renderer or, if the sprite requires a `Dynamic Pivot 2D` component, it will be on the same game object as the pivot component.  (See the image under the description of the `Dynamic Pivot 2D` component for an example of this.)
-
-The 'sorting order' roughly corresponds to Spriter's z-index.  Spriter's z-index (its value multiplied by -0.001, to be exact) is stored in the `localPosition.z` property of either the pivot's transform, if any, or the sprite renderer's transform.
-
->Large values (negative *or* positive) aren't used so that the sprites stay within the camera's clipping space.
-
-This component updates the sprite renderer during `LateUpdate()`.  The value of `Order in Layer` will be in increments of 10.  This is to allow for custom sprite renderers to be mixed-in with those of the prefab.
+When a Dynamic Pivot 2D component is used the sprite renderer will be placed on a child transform and the pivot component will adjust the child transform's position to take the pivot point into account.  The animation curves that move, rotate, and scale the sprite will be done to the transform containing the pivot component and not the transform containing the sprite renderer, as is done normally.
 
 ### `Sprite Visibility`
 
@@ -266,6 +254,8 @@ When a transform has a virtual parent component, the component will make childre
 Unity animation clips require the paths to properties that it animates remain static.  For this reason, you can't move a game object/transform around in the hierarchy when it has properties that are being animated.  That is, you can't actually re-parent transforms via animation.
 
 Bones and sprites that have more than one parent (across all animations) will have a `Virtual Parent` component created to deal with switching between parents during animations.  The importer will populate the `Possible Parents` array and animation clips will select the appropriate parent via the `Parent Index` property.
+
+If any `Virtual Parent` components (or `Spatial Adapter` components) are created during an import then a `Dependency Resolver` component will be created and placed at the root of the prefab.  A `Dependency Resolver` will coordinate the ordered execution of virtual parents and spatial adapters and is required for them to function properly.
 
 >Unity has a `Parent Constraint` component but it isn't used due to the fact that it doesn't work in-editor when playing/scrubbing animation clips.
 
@@ -347,15 +337,29 @@ Another option to fix this is to use Spriter Pro's `Save as resized project` fea
 
 **A Strategy for Keeping Customizations out of Generated Prefabs**
 
-Because it is likely that you will eventually need to regenerate a prefab, it is advised that you keep all customizations out of the prefab.  This way you will be able to simply delete the old prefab and reimport without fear of losing any customizations.
+Because it is likely that you will eventually need to regenerate a prefab, it is advised that you be mindful about any customizations that you make to the prefab.  Ideally, you want no customizations at all.  This way you will be able to simply delete the old prefab and reimport without fear of losing any of them.
 
-This approach treats the prefab as the read-only visual representation (aka `skin` or `model`) of a character while customizations such as logic, colliders, etc. are placed elsewhere in the game object's hierarchy.
+The idea is to treat the prefab as the (mostly) read-only visual representation (aka `skin` or `model`) of a character while customizations such as logic, colliders, etc. are placed elsewhere in the game object's hierarchy.
 
-One approach is to make the prefab a child of another game object.  The root game object would be where all, or most, of the custom scripts are placed.
+One approach is to make the prefab instance a child of another game object.  The root game object would be where all, or most, of the custom scripts are placed.
 
-If you find that you need to add something such as a collider or a sprite renderer to one of the model's transforms then it is advised that you, instead, create an empty transform as a child of the root, add a `Virtual Parent` component to it, and make the target transform (the transform you want the collider, sprite renderer, etc. attached to) the sole `Possible Parent` of the virtual parent.  Any components that you place on the virtual parent, or its children, will essentially be a child of the target's transform and move, rotate and scale based on it.
+If you find that you need to add something such as a collider or a sprite renderer to one of the model's transforms then it is advised that you do the following instead:
 
->If you have added custom sprite renderers then be sure to 1) add any new sprites to the sprite atlas, and 2) move the `Sorting Group` component from the model's prefab up into the root game object.
+* Create an empty game object as a child of the root game object.  (This game object will be a sibling of the prefab instance.)
+* Add a `Virtual Parent` component to the newly created game object.
+* Make the target transform (the transform that you want the collider, sprite renderer, etc. attached to) the sole `Possible Parent` of the virtual parent.
+* Assign a value of `0` to the `Parent Index` property.
+* If the entity's prefab instance already has a `Dependency Resolver` component, remove it.
+* Add a `Dependency Resolver` component to the root game object.  This way it can find the newly created `Virtual Parent` as well as any virtual parents and spatial adapters in the prefab instance.
+* Create one or more child game objects under the virtual parent game object that you created in the first step.  Place your sprite renderers, colliders, etc. there.  They will move, rotate, and scale based on their virtual parent.
+* If you have added custom sprite renderers then be sure to:
+    1) Add any new sprites to the sprite atlas.
+    2) Move the `Sorting Group` component from the model's prefab instance up into the root game object.
+    3) If necessary, create a simple script that sets the sprite renderer's `Sorting Order` property in `LateUpdate()`.  Set the value based on another sprite in the hierarchy, which you want to always be in front of, or behind, for example.
+
+Doing this minimizes the number of customizations that you will have to do to the entity prefab instance.  You also won't have any customizations buried deep in the prefab's hierarchy.
+
+> Technically speaking, the above procedure, for the most part, can be used to embed one prefab instance inside another.  The result would be similar to Spriter's sub-entity feature.  Keeping the sprite sorting order of the two (or more) entities under control is left as an exercise to the reader.
 
 ## Caveats.
 
@@ -468,7 +472,7 @@ If you are developing, maintaining, or troubleshooting Stui, then you may find t
 
 ### Extra Logging
 
-You can enable additional logging for Spriter project imports.  At the moment, only the `SpriterEntityInfo` class emits this extra debugging output.  To turn it on, add the symbol `ENABLE_STUI_DEBUG_LOGS` to your project’s **Scripting Define Symbols**.
+You can enable additional logging for Spriter project imports.  At the moment, only the `SpriterEntityInfo` class emits this extra debugging output.  (One of the class' key objectives is to log information regarding .scml files.)  To turn it on, add the symbol `ENABLE_STUI_DEBUG_LOGS` to your project’s **Scripting Define Symbols**.  If the importer doesn't do something that you expect it to do then the logs may provide some insight.
 
 ### SCML File Inspector
 

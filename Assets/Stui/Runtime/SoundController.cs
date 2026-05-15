@@ -57,10 +57,13 @@ namespace Stui
 
         private AudioSource _audioSource;
 
-        void OnEnable()
+        void Awake()
         {
             TryGetComponent(out _audioSource);
+        }
 
+        void OnEnable()
+        {
             if (_audioSource == null)
             {
                 Debug.LogWarning($"SoundController.Awake(): An AudioSource wasn't found.");

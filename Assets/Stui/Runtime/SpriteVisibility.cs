@@ -20,9 +20,13 @@ namespace Stui
 
         private SpriteRenderer _spriteRenderer;
 
-        void OnEnable()
+        void Awake()
         {
             TryGetComponent(out _spriteRenderer);
+        }
+
+        void OnEnable()
+        {
             ApplyVisibility();
         }
 

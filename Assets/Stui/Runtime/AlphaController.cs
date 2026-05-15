@@ -28,12 +28,15 @@ namespace Stui
 
         private bool _needInitialResolution = true;
 
-        void OnEnable()
+        void Awake()
         {
             // If _spriteRenderer is null then the component is on a bone.  In which case the component only needs to
             // track the alpha value and does't need to do anything else.
             TryGetComponent(out _spriteRenderer);
+        }
 
+        void OnEnable()
+        {
             _needInitialResolution = true;
 
             ApplyAlpha();

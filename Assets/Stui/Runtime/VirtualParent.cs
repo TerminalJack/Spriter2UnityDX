@@ -20,7 +20,7 @@ namespace Stui
 
         [Tooltip("Selects which index from the Possible Parents list is currently active as the virtual parent.  " +
             "The importer reserves index 0 as the component's actual parent but you don't have to follow this norm.  " +
-            "An invalid index will use the component's actual parent.")]
+            "An invalid index, such as the default of -1, will use the component's actual parent.")]
         [FormerlySerializedAs("parentIndex")]
         public int ParentIndex = -1;
 
@@ -41,6 +41,15 @@ namespace Stui
 
         private int _version = 1;
         private int _lastParentIndex = -1;
+
+        void Awake()
+        {
+            if (!GetComponentInParent<DependencyResolver>())
+            {
+                Debug.LogWarning("A VirtualParent component was created but a DependencyResolver component wasn't " +
+                    "found.  The VirtualParent component will not work without a corresponding DependencyResolver.");
+            }
+        }
 
         public Transform GetVirtualParentTransform()
         {

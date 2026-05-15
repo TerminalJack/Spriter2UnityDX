@@ -31,9 +31,13 @@ namespace Stui
         SpriteRenderer _spriteRenderer;
         Transform _spriteTransform;
 
-        void OnEnable()
+        void Awake()
         {
             GatherReferences();
+        }
+
+        void OnEnable()
+        {
             ApplyPivot();
         }
 
