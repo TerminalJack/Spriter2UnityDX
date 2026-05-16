@@ -1,0 +1,18 @@
+{
+    "name": "TerminalJack.Stui.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:14e91f04a2b323a43bad748d8ab51c16"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

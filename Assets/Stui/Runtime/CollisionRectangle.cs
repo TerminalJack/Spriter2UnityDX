@@ -11,6 +11,9 @@ using UnityEngine.Events;
 
 namespace Stui
 {
+    [Serializable]
+    public class Collider2DEvent : UnityEvent<Collider2D> {}
+
     [ExecuteAlways]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Rigidbody2D))]
@@ -20,7 +23,7 @@ namespace Stui
         [Serializable]
         private class CollisionEventBinding
         {
-            public UnityEvent<Collider2D> callback = new UnityEvent<Collider2D>();
+            public Collider2DEvent callback = new Collider2DEvent();
         }
 
         public bool ColliderEnabled = false; // This is controlled by animation curves.
@@ -31,9 +34,9 @@ namespace Stui
         [SerializeField] private List<CollisionEventBinding> _onExitBindings = new List<CollisionEventBinding>();
 
         // Public API for user scripts to register/unregister handlers programmatically.
-        [NonSerialized] public readonly UnityEvent<Collider2D> OnEnter = new UnityEvent<Collider2D>();
-        [NonSerialized] public readonly UnityEvent<Collider2D> OnStay = new UnityEvent<Collider2D>();
-        [NonSerialized] public readonly UnityEvent<Collider2D> OnExit = new UnityEvent<Collider2D>();
+        [NonSerialized] public readonly Collider2DEvent OnEnter = new Collider2DEvent();
+        [NonSerialized] public readonly Collider2DEvent OnStay = new Collider2DEvent();
+        [NonSerialized] public readonly Collider2DEvent OnExit = new Collider2DEvent();
 
         private BoxCollider2D _boxCollider2D;
 
