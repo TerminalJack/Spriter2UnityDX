@@ -31,6 +31,12 @@ namespace Stui
         SpriteRenderer _spriteRenderer;
         Transform _spriteTransform;
 
+        public void Refresh() // Called by the importer.
+        {
+            GatherReferences();
+            ApplyPivot();
+        }
+
         void Awake()
         {
             GatherReferences();
@@ -44,8 +50,7 @@ namespace Stui
 #if UNITY_EDITOR
         void OnValidate()
         {
-            GatherReferences();
-            ApplyPivot();
+            Refresh();
         }
 
         void OnDidApplyAnimationProperties() => ApplyPivot();

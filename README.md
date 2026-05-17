@@ -92,7 +92,13 @@ As of this writing the only development platform that has been tested is Windows
 
 ## Supported Runtime Platforms.
 
-The only runtime platforms that have been tested at this time are Windows and WebGL.  Please let me know how it goes for the other runtime platforms.
+The following runtime platforms have been tested at this time:
+
+* Windows
+* WebGL
+* Android
+
+Please let me know how it goes for the other runtime platforms.
 
 ## Supported Spriter features.
 
@@ -218,14 +224,6 @@ Applies all of the maps in the `ActiveMapNames` list.  The mapping defined in `B
 A Dynamic Pivot 2D component will be used in the case where--if in any of an entity's animations--a sprite uses a pivot point that is different than its default.  The entity's animation clips will then have animation curves that set the pivot's `X` and `Y` properties as appropriate.
 
 When a Dynamic Pivot 2D component is used the sprite renderer will be placed on a child transform and the pivot component will adjust the child transform's position to take the pivot point into account.  The animation curves that move, rotate, and scale the sprite will be done to the transform containing the pivot component and not the transform containing the sprite renderer, as is done normally.
-
-### `Sprite Visibility`
-
-See the description of the `Sorting Order Updater` component for an image that includes the `Sprite Visibility` component.
-
-This component is responsible for enabling or disabling its corresponding sprite renderer.  Newer versions of Unity don't allow animation curves (built programmatically) to be bound to the `SpriteRenderer.enabled` property so this component is basically a hack to get around that.
-
-The component's `Is Visible` property will be set by animation curves when a sprite needs to be visible or not.  A value of `false` will hide the sprite.  A value of `true` will show it.
 
 ### `Texture Controller`
 

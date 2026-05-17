@@ -33,8 +33,8 @@ namespace Stui
         private struct TransformModifierInfo
         {
             public ITransformModifier modifier;
-            public Transform transform; // The transform the modifier is on.
-            public Transform resolvedParent; // The parent is real or virtual.
+            public Transform thisModifierTransform; // The transform the modifier is on.
+            public Transform nextModifierTransform; // The transform of the next ancestor that is also a modifier, if any.
         }
 
         private readonly List<TransformModifierInfo> _modifierInfos = new List<TransformModifierInfo>();
@@ -116,33 +116,50 @@ namespace Stui
                 _modifierInfos.Add(new TransformModifierInfo
                 {
                     modifier = modifier,
-                    transform = ((MonoBehaviour)modifier).transform,
-                    resolvedParent = null
+                    thisModifierTransform = ((MonoBehaviour)modifier).transform,
+                    nextModifierTransform = null
                 });
             }
         }
 
+        // Note: This is used to avoid generating garbage.
+        private int FindModifierTransformIndex(Transform t)
+        {
+            for (int i = 0; i < _modifierInfos.Count; ++i)
+            {
+                if (_modifierInfos[i].thisModifierTransform == t)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
         private void RebuildResolvedParents()
         {
+            // Walk up the chain and find each of the modifiers' next ancestor that is also a modifier, if any.
             for (int i = 0; i < _modifierInfos.Count; i++)
             {
                 var info = _modifierInfos[i];
 
-                Transform parent = info.transform.parent;
+                Transform nextAncestor = info.thisModifierTransform.parent;
 
-                if (_vpInfos.TryGetValue(info.transform, out var vpInfo))
+                // If this modifier is a virtual parent then get the appropriate parent and update the cached vp version.
+                if (_vpInfos.TryGetValue(info.thisModifierTransform, out var vpInfo))
                 {
-                    var vpTransform = vpInfo.virtualParent.GetVirtualParentTransform();
-
-                    if (vpTransform != null)
-                    {
-                        parent = vpTransform;
-                    }
+                    nextAncestor = vpInfo.virtualParent.GetVirtualParentTransform();
 
                     vpInfo.version = vpInfo.virtualParent.Version;
                 }
 
-                info.resolvedParent = parent;
+                // Continue up the chain of ancestors until there are no more or one is found in _modifierinfos.
+                while (nextAncestor != null && FindModifierTransformIndex(nextAncestor) == -1)
+                {
+                    nextAncestor = nextAncestor.parent;
+                }
+
+                info.nextModifierTransform = nextAncestor;
                 _modifierInfos[i] = info;
             }
         }
@@ -165,23 +182,10 @@ namespace Stui
             _sortedTransformModifiers.Clear();
             _visitedTransforms.Clear();
 
-            int FindIndex(Transform t)
-            {
-                for (int i = 0; i < _modifierInfos.Count; ++i)
-                {
-                    if (_modifierInfos[i].transform == t)
-                    {
-                        return i;
-                    }
-                }
-
-                return -1;
-            }
-
             void Visit(int index)
             {
                 var info = _modifierInfos[index];
-                Transform t = info.transform;
+                Transform t = info.thisModifierTransform;
 
                 if (_visitedTransforms.TryGetValue(t, out bool done) && done)
                 {
@@ -190,9 +194,9 @@ namespace Stui
 
                 _visitedTransforms[t] = true;
 
-                if (info.resolvedParent != null)
+                if (info.nextModifierTransform != null)
                 {
-                    int parentIndex = FindIndex(info.resolvedParent);
+                    int parentIndex = FindModifierTransformIndex(info.nextModifierTransform);
 
                     if (parentIndex >= 0)
                     {

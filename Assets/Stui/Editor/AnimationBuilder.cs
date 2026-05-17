@@ -196,32 +196,33 @@ namespace Stui.Animations
                 yield return null; // Wait for next frame so the display of status messages can catch up.
 
                 foreach (var kvPair in pendingTransforms)
-                {   // Hide all of the remaining sprite renderers.
+                {   // Hide all of the remaining sprite renderers, if necessary.
                     if (DefaultSprites.ContainsKey(kvPair.Key))
                     {
-                        // The SpriteVisibility component is on this game object or a child.
-                        var visibilityComponent = kvPair.Value.GetComponentInChildren<SpriteVisibility>(includeInactive: true);
+                        // The SpriteRenderer component is on this game object or a child.
+                        var rendererComponent = kvPair.Value.GetComponentInChildren<SpriteRenderer>(includeInactive: true);
 
-                        if (visibilityComponent != null && visibilityComponent.IsVisible)
+                        if (rendererComponent != null && rendererComponent.enabled)
                         {
-                            var visibilityComponentTransformPath = GetPathToChild(visibilityComponent.transform);
-                            var binding = EditorCurveBinding.FloatCurve(visibilityComponentTransformPath, typeof(SpriteVisibility),
-                                nameof(SpriteVisibility.IsVisible));
+                            var rendererComponentTransformPath = GetPathToChild(rendererComponent.transform);
+                            var binding = EditorCurveBinding.FloatCurve(rendererComponentTransformPath,
+                                typeof(SpriteRenderer), "m_Enabled");
                             var curve = new AnimationCurve(new Keyframe(0f, 0f, inf, inf));
 
                             AnimationUtility.SetEditorCurve(clip, binding, curve);
                         }
                     }
 
+                    // Disable any remaining box colliders, if necessary.
                     if (DefaultCollisionRectangles.ContainsKey(kvPair.Key))
                     {
-                        var colliderComponent = kvPair.Value.GetComponent<CollisionRectangle>();
+                        var colliderComponent = kvPair.Value.GetComponent<BoxCollider2D>();
 
-                        if (colliderComponent != null && colliderComponent.ColliderEnabled)
+                        if (colliderComponent != null && colliderComponent.enabled)
                         {
                             var colliderComponentTransformPath = GetPathToChild(colliderComponent.transform);
-                            var binding = EditorCurveBinding.FloatCurve(colliderComponentTransformPath, typeof(CollisionRectangle),
-                                nameof(CollisionRectangle.ColliderEnabled));
+                            var binding = EditorCurveBinding.FloatCurve(colliderComponentTransformPath,
+                                typeof(BoxCollider2D), "m_Enabled");
                             var curve = new AnimationCurve(new Keyframe(0f, 0f, inf, inf));
 
                             AnimationUtility.SetEditorCurve(clip, binding, curve);
@@ -1308,8 +1309,8 @@ namespace Stui.Animations
 
         private void CreateSpriteVisibilityCurve(Transform child, List<MainlineKey> mlks, Timeline timeline, AnimationClip clip)
         {
-            var visibilityComponent = child.GetComponentInChildren<SpriteVisibility>(includeInactive: true);
-            var visibilityBindPoseValue = visibilityComponent.IsVisible;
+            var rendererComponent = child.GetComponentInChildren<SpriteRenderer>(includeInactive: true);
+            var enabledBindPoseValue = rendererComponent.enabled;
 
             var visibilityInfos =
             (
@@ -1340,7 +1341,7 @@ namespace Stui.Animations
 
             // A curve needs to be created if the visibility changes or if it doesn't but the visibility is different
             // than the bind pose value.
-            bool needCurve = isMixedVisibility || (visibilityBindPoseValue ? isNotVisibleForAllKeys : isVisibleForAllKeys);
+            bool needCurve = isMixedVisibility || (enabledBindPoseValue ? isNotVisibleForAllKeys : isVisibleForAllKeys);
 
             if (needCurve)
             {
@@ -1358,9 +1359,9 @@ namespace Stui.Animations
 
                 var curve = new AnimationCurve(visibilityKeyFrames.ToArray());
 
-                var visibilityComponentTransformPath = GetPathToChild(visibilityComponent.transform);
-                var binding = EditorCurveBinding.FloatCurve(visibilityComponentTransformPath, typeof(SpriteVisibility),
-                    nameof(SpriteVisibility.IsVisible));
+                var rendererComponentTransformPath = GetPathToChild(rendererComponent.transform);
+                var binding = EditorCurveBinding.FloatCurve(rendererComponentTransformPath, typeof(SpriteRenderer),
+                    "m_Enabled");
 
                 AnimationUtility.SetEditorCurve(clip, binding, curve);
             }
@@ -1368,8 +1369,8 @@ namespace Stui.Animations
 
         private void CreateColliderEnabledCurve(Transform child, List<MainlineKey> mlks, Timeline timeline, AnimationClip clip)
         {
-            var collisionComponent = child.GetComponent<CollisionRectangle>();
-            var colliderEnabledBindPoseValue = collisionComponent.ColliderEnabled;
+            var colliderComponent = child.GetComponent<BoxCollider2D>();
+            var colliderEnabledBindPoseValue = colliderComponent.enabled;
 
             var enabledInfos =
             (
@@ -1418,9 +1419,9 @@ namespace Stui.Animations
 
                 var curve = new AnimationCurve(enabledKeyFrames.ToArray());
 
-                var collisionComponentTransformPath = GetPathToChild(collisionComponent.transform);
-                var binding = EditorCurveBinding.FloatCurve(collisionComponentTransformPath, typeof(CollisionRectangle),
-                    nameof(CollisionRectangle.ColliderEnabled));
+                var collisionComponentTransformPath = GetPathToChild(colliderComponent.transform);
+                var binding = EditorCurveBinding.FloatCurve(collisionComponentTransformPath, typeof(BoxCollider2D),
+                    "m_Enabled");
 
                 AnimationUtility.SetEditorCurve(clip, binding, curve);
             }
@@ -1872,7 +1873,7 @@ namespace Stui.Animations
                     ? GetIndexOrAdd(ref sprites, Folders[nextInfo.folderId][nextInfo.fileId])
                     : startValue;
 
-                allCurves.Add(CreateCurve(CurveType.instant, startTime, endTime, startValue, endValue));
+                allCurves.Add(CreateCurve(CurveType.instant, TweakTime(startTime), TweakTime(endTime), startValue, endValue));
             }
 
             CurveBuilder.ConcatenateCurvesInto(curve, allCurves.ToArray());

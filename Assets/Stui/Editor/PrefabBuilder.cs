@@ -308,6 +308,12 @@ namespace Stui.Prefabs
                     firstAnim = false;
                 }
 
+                if (dependencyResolver != null)
+                {
+                    dependencyResolver.MarkDirty();
+                    yield return null; // Allow the dependencyResolver to update.
+                }
+
                 var animBuildProcess =
                     IteratorUtils.SafeEnumerable(
                         () => animBuilder.Build(animation, timelines, buildCtx),
@@ -1017,6 +1023,7 @@ namespace Stui.Prefabs
                 else if (pivotController != null)
                 {
                     DestroyImmediate(pivotController);
+                    pivotController = null;
                 }
 
                 // The transform gets initialized with the baked or unbaked, regardless.  If a Spatial Adapter
@@ -1078,8 +1085,6 @@ namespace Stui.Prefabs
                 color.a = spriteInfo.a;
                 renderer.color = color;
 
-                var spriteVisibility = rendererTransform.GetOrAddComponent<SpriteVisibility>();
-
                 // An Alpha Controller component will need to be added if any of this sprite's parent bones use alpha.
 
                 AlphaController alphaController;
@@ -1101,7 +1106,11 @@ namespace Stui.Prefabs
 
                 // Disable the Sprite Renderer if this isn't the first frame of the first animation
                 renderer.enabled = firstAnim;
-                spriteVisibility.IsVisible = firstAnim;
+
+                if (pivotController != null)
+                {
+                    pivotController.Refresh();
+                }
             }
         }
 
@@ -1349,7 +1358,6 @@ namespace Stui.Prefabs
 
                 // Disable the collider if this isn't the first frame of the first animation
                 collider.enabled = firstAnim;
-                collisionRectangle.ColliderEnabled = firstAnim;
             }
         }
 
