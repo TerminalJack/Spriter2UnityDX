@@ -2,7 +2,7 @@
 
 A powerful Unity asset for converting your Spriter projects into native Unity prefabs, animator controllers, and animation clips.
 
-## Description
+# Description
 The ***Spriter to Unity Importer***, henceforth referred to as `Stui` (pronounced the same as `Stewie`), helps you integrate Spriter projects into Unity.  It imports Spriter `.scml` files and the images that it references and produces the following as output:
 
 * **Prefabs** <br>
@@ -12,19 +12,7 @@ One animator controller will be generated for each of the entities.  An animatio
 * **Animation clips** <br>
 One animation clip will be generated for each of an entity's animations.  These are standard Unity animation clips that can be played/scrubbed in-editor using Unity's Animator window.  If the structure of the Spriter file permits it, you can use Unity animation features such as crossfade and transition blending.
 
-## The Origins of this Project
-
-This project started out as a custom fork of the [Spriter2UnityDX](https://github.com/Dharengo/Spriter2UnityDX) project.  You will still find references to the original project (such as its name) in this project.  Much of the original code still remains but has been refactored in some way.
-
-The original project has been abandoned for many years.  Because of this, the custom fork was made into a standalone Github project and renamed to `Stui` to help distinguish between the two projects.
-
-Stui revived the original Spriter2UnityDX project and added a lot of new functionality.  It has also fixed all of the issues known to affect the original project.
-
-Other than new features and bug fixes, the main focus of Stui is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  To be honest, the animations created by the original Spriter2UnityDX project practically _never_ matched those of the corresponding Spriter project.
-
-Stui aims to be lightweight and allocation-free.  The generated native Unity animations require some 'adaptor' or 'glue-type' of components to faithfully match the Spriter animations but they should be very performant.
-
-## Where to Get Stui and How to Install it
+# Where to Get Stui and How to Install it
 
 You have two simple options for installation: grab the UnityPackage from Releases, or install directly from source.
 
@@ -40,7 +28,9 @@ You have two simple options for installation: grab the UnityPackage from Release
 
 > The default installation location is `Assets/Stui/` but you can rename the folder and/or move it into another folder such as `Assets/Plugins/` or `Assets/3rdParty/`.
 
-## Quick Start!
+This asset uses assembly definition (asmdef) files, which keep the Stui asset files separate from your project.  This prevents Unity from recompiling the Stui code each time your project compiles.  If _your_ project uses asmdef files as well then see the section [Assembly Definitions](#assembly-definitions) for instructions on how to add references to the STUI assemblies to your project.  If your project doesn't use asmdef files then there is nothing you will need to do to make use of Stui's assemblies.  Unity will handle them automatically.
+
+# Quick Start!
 
 Once Stui is installed you can import a Spriter project simply by dropping the folder that contains the `.scml` file--**and** all of the image files needed by the `.scml` file--into the Unity `Project` window.
 
@@ -78,29 +68,7 @@ Finally, before you go and play with the newly generated prefabs, be wary when t
 
 For Spriter projects, the biggest factor as to whether this works or not depends on how different the bone hierarchy is between the two animations.  If they are different in any way then you will likely have sprites that go flying off in seemingly random directions during the transition.  This applies when using the `Animator.CrossFade()` method as well.  If you run into this issue then you will either need to change the bone hierarchy in Spriter or completely disable transition blending for the affected animator states.
 
-## Supported Versions of Unity.
-
-The importer and the generated prefabs, animator controllers, animation clips, and the runtime library are all supported by Unity version 2019 and later.  The importer's output is **not** tied to the same version of Unity that produced it.  That is, you can produce the prefabs, animator controllers, and animation clips in Unity 2019 and use them as-is in Unity version 6.1 and vice-versa.
-
-## Supported Pipelines.
-
-The importer and its output will work with the built-in renderer (aka BiRP) as well as the Universal Render Pipeline (URP.)
-
-## Supported Development Platforms.
-
-As of this writing the only development platform that has been tested is Windows.  If you try the importer on another development platform then please let me know how it goes!
-
-## Supported Runtime Platforms.
-
-The following runtime platforms have been tested at this time:
-
-* Windows
-* WebGL
-* Android
-
-Please let me know how it goes for the other runtime platforms.
-
-## Supported Spriter features.
+# Supported Spriter features.
 
 The importer currently supports the following Spriter features:
 
@@ -118,7 +86,7 @@ The importer currently supports the following Spriter features:
 * **Animated bone scales.**  Spriter and Unity handle bone scales differently.  The importer has an option to support this feature.  In the cases where a Spriter project uses this feature, enabling the option at the time of import will help ensure that Unity's playback matches that of Spriter.  If the option is disabled then bone scales will be baked-in for each keyframe.  This is more performant but could result in Unity animations that do not entirely match Spriter's animations.
 * **Collision rectangles.**  Spriter allows the animator to create box colliders that can be animated similar to how an image is animated.  When imported, these will be converted to a game object that has both a `BoxCollider2D` and a `Rigidbody2D` Unity component.  Stui will also place a `Collision Rectangle` component on the game object.  Animation curves will use this component to enable or disable the collider.  The component's inspector allows for design-time subscription to the various collision events.  An API is also provided for runtime subscription to these events.  Stay tuned for more information regarding this feature.
 
-## Unsupported Spriter Features.
+# Unsupported Spriter Features.
 
 The following Spriter features are not supported and will likely not be supported in the future:
 
@@ -127,7 +95,29 @@ The following Spriter features are not supported and will likely not be supporte
 * **Texture Packer atlases.**  Stui works great with Unity's sprite atlases.  You are encouraged to use them instead.
 * **Pixel art Spriter projects.**  Spriter supports a special mode for pixel art.  The importer doesn't support these types of Spriter projects.
 
-## Import Options.
+# Supported Versions of Unity.
+
+The importer and the generated prefabs, animator controllers, animation clips, and the runtime library are all supported by Unity version 2019 and later.  The importer's output is **not** tied to the same version of Unity that produced it.  That is, you can produce the prefabs, animator controllers, and animation clips in Unity 2019 and use them as-is in Unity version 6.1 and vice-versa.
+
+# Supported Pipelines.
+
+The importer and its output will work with the built-in renderer (aka BiRP) as well as the Universal Render Pipeline (URP.)
+
+# Supported Development Platforms.
+
+As of this writing the only development platform that has been tested is Windows.  If you try the importer on another development platform then please let me know how it goes!
+
+# Supported Runtime Platforms.
+
+The following runtime platforms have been tested at this time:
+
+* Windows
+* WebGL
+* Android
+
+Please let me know how it goes for the other runtime platforms.
+
+# Import Options.
 
 The `Spriter Import Options` window will appear whenever you either, a) drop a Spriter project into Unity's `Project` window, or, b) right-click an `.scml` file and select `Reimport`.
 
@@ -145,11 +135,11 @@ If your Spriter project has any entities that define Character Maps then enablin
 
 The `Animation Import Style` dropdown has the two options: `Nested In Prefab` and `Separate Folder`.  If you select `Separate Folder`, a prefab's animation clips will be placed in a subfolder named "{*prefabName*}_Anims".
 
-## Runtime Components.
+# Runtime Components.
 
 The following components are used at runtime (and in some cases, in-editor) to supplement the animations and visuals generated by the importer.  The components will be found in the prefab's hierarchy when and where they are needed.
 
-### `Character Map Controller`
+## `Character Map Controller`
 
 ![Character Map Controller Image](docs/Images/CharacterMapController_v5.png)
 
@@ -167,33 +157,33 @@ If you feel that the list of items shown in `Active Maps` is not up to date then
 
 Both the `Active Maps` list and the `Available Maps` list have a search feature.  This will filter the lists based on a search string, which can be handy for large lists.
 
-### Character Map Controller API
+## Character Map Controller API
 ---
 To make character map changes at runtime, use the `Character Map Controller` API.
 
-### Properties
+## Properties
 
-#### `public List<string> ActiveMapNames`
+### `public List<string> ActiveMapNames`
 
 `ActiveMapNames` holds the names of each of the active maps.  You can modify this list directly or use the convenience methods `Clear()`, `Add()`, and `Remove()`.  If you need to make a lot of changes at once then modifying the list directly will be more performant.  If you do modify the list directly then be sure to call `Refresh()` afterward to apply your changes.
 
-#### `public List<CharacterMapping> AvailableMaps`
+### `public List<CharacterMapping> AvailableMaps`
 
 This list contains all of the maps that are defined for this prefab.  These are determined by the corresponding Spriter entity.  If you need to make changes to this list then you are strongly encouraged to make them to the original Spriter file since any changes you make will be lost when/if you do a reimport.
 
-#### `public CharacterMapping BaseMap`
+### `public CharacterMapping BaseMap`
 
 This is a map that defines the prefab's default sprite mapping.  This is used as the base for all other maps.  It is applied before any other maps are applied.  You are advised to leave this as-is.  Any changes will likely break future reimports.
 
-### Methods
+## Methods
 
-#### `void Clear()`
+### `void Clear()`
 
 Removes all map names from the `ActiveMapNames` list and applies the change via `Refresh()`.  This will reset all of the sprites to the mapping defined in the `BaseMap` property.
 
 ---
 
-#### `bool Add(string mapName)`
+### `bool Add(string mapName)`
 
 Adds the map, `mapName`, to the end of the `ActiveMapNames` list and applies the change via `Refresh()`.  If `mapName` was already in the list then it will be removed from its current position and added to the end.
 
@@ -203,7 +193,7 @@ Returns `true` if successful.  Returns `false` if `mapName` is not a valid map n
 
 ---
 
-#### `bool Remove(string mapName)`
+### `bool Remove(string mapName)`
 
 Removes the map, `mapName`, from the `ActiveMapNames` list and applies the change via `Refresh()`.
 
@@ -213,11 +203,11 @@ Returns `true` if `mapName` was successfully removed.  Returns `false` if `mapNa
 
 ---
 
-#### `void Refresh(bool logWarnings = true)`
+### `void Refresh(bool logWarnings = true)`
 
 Applies all of the maps in the `ActiveMapNames` list.  The mapping defined in `BaseMap` is applied first then each of the mappings in `ActiveMapNames` are applied.  If any map names in `ActiveMapNames` is invalid *and* `logWarnings` is `true`, then a warning will be logged to the console.
 
-### `Dynamic Pivot 2D`
+## `Dynamic Pivot 2D`
 
 ![Dynamic Pivot 2D Image](docs/Images/TransformWithDynamicPivot.png)
 
@@ -225,7 +215,7 @@ A Dynamic Pivot 2D component will be used in the case where--if in any of an ent
 
 When a Dynamic Pivot 2D component is used the sprite renderer will be placed on a child transform and the pivot component will adjust the child transform's position to take the pivot point into account.  The animation curves that move, rotate, and scale the sprite will be done to the transform containing the pivot component and not the transform containing the sprite renderer, as is done normally.
 
-### `Texture Controller`
+## `Texture Controller`
 
 ![Texture Controller Image](docs/Images/SpriteRendererWithTextureController.png)
 
@@ -241,7 +231,7 @@ Sprites that have only a single texture across all animations will not have a `T
 
 >See the Character Map feature as well for a powerful way of re-skinning your imported Spriter entities.  The `Character Map Controller` component works with `Texture Controller` components to support Spriter's Character Map feature.
 
-### `Virtual Parent`
+## `Virtual Parent`
 
 ![Virtual Parent Image](docs/Images/TransformWithVirtualParent.png)
 
@@ -259,13 +249,13 @@ If any `Virtual Parent` components (or `Spatial Adapter` components) are created
 
 See the **Tips and tricks** section for some other handy uses for the `Virtual Parent` component.
 
-## The Prefab's Bind Pose
+# The Prefab's Bind Pose
 
 The **bind pose** (also called the rest pose or default pose) is the reference state of a prefab before any animation is applied. It’s defined by the first frame of the entity’s first animation and also determines the prefab’s preview image.
 
 If a prefab has many virtual parents then some thought should be given to which animation is used to define the bind pose.  Ideally, you want to use a bind pose that will exploit a particular optimization in the `Virtual Parent` component.
 
-### What the Bind Pose Includes
+## What the Bind Pose Includes
 
 - Transform properties
   - Position, rotation, scale
@@ -274,20 +264,20 @@ If a prefab has many virtual parents then some thought should be given to which 
 - Constraint properties
   - Virtual parent assignments, pivot points
 
-### How Unity, the Importer, and Spriter Use the Bind Pose
+## How Unity, the Importer, and Spriter Use the Bind Pose
 
 - When you drop a prefab into the Scene view, it appears in its bind pose.
 - Spriter doesn't have the concept of a bind pose but, so far as the importer is concerned, in the Spriter application, dragging an animation into the top-most row makes that animation's first frame the bind pose.
 - During import, the importer compares each animatable property against its bind-pose value. If a property never deviates then the importer skips generating an animation curve for it. At runtime, channels without curves automatically fall back to their bind pose values, reducing clip size, memory usage, and sampling overhead.
 
-### Virtual Parent Optimization
+## Virtual Parent Optimization
 
 During import, each `Virtual Parent` component is configured so that its "actual parent" in the hierarchy matches the parent defined in the first frame of the entity's first animation.
 
 - If `Parent Index == 0` (virtual parent equals actual parent), the component simply resets its transform.
 - This reset code path skips constraint solving entirely, offering a significant performance boost over full constraint evaluation.
 
-### Choosing the Best Bind Pose
+## Choosing the Best Bind Pose
 
 1. Identify the pose most representative of your common animations.
 2. Ensure virtual parents in that pose line up with their actual parents to trigger the reset-only code path.
@@ -295,7 +285,63 @@ During import, each `Virtual Parent` component is configured so that its "actual
 
 By selecting a bind pose that matches your typical animation scenarios, you maximize the use of these optimizations.
 
-## Tips and Tricks.
+# Assembly Definitions
+
+This package includes two assemblies:
+
+- **`TerminalJack.Stui`** — runtime code
+- **`TerminalJack.Stui.Editor`** — editor‑only tools (custom inspectors, windows, utilities)
+
+Unity enforces strict separation between runtime and editor assemblies. Runtime code cannot reference editor code. Editor code *can* reference runtime code.
+
+---
+
+## **If your project uses asmdefs**
+
+If your project defines its own assembly definitions, you must add references to the appropriate STUI assemblies.
+
+## **Runtime scripts**
+If you have a runtime asmdef (e.g., `MyGame.Runtime.asmdef`):
+
+- Add a reference to:
+  **`TerminalJack.Stui`**
+
+This enables your scripts to use STUI’s runtime API.
+
+## **Editor scripts**
+If you have an editor asmdef (e.g., `MyGame.Editor.asmdef`):
+
+- Add references to:
+  - **`TerminalJack.Stui`**
+  - **`TerminalJack.Stui.Editor`**
+
+This enables custom inspectors, property drawers, and other editor extensions.
+
+## **Important**
+Do **not** reference `TerminalJack.Stui.Editor` from a runtime asmdef.  Doing so will prevent your project from building.
+
+---
+
+## **If your project does *not* use asmdefs**
+
+No setup is required.
+
+Unity automatically:
+
+- Includes `TerminalJack.Stui` in your runtime build
+- Loads `TerminalJack.Stui.Editor` only inside the Editor
+- Makes all public APIs available to your scripts
+
+---
+
+## Verifying your setup
+
+- If your runtime scripts compile → `TerminalJack.Stui` is referenced correctly.
+- If your editor extensions compile → `TerminalJack.Stui.Editor` is referenced correctly.
+- If you see “Assembly has reference to non‑existent assembly” → a reference is missing or mis‑assigned.
+- If you see “The type or namespace name ‘UnityEditor’ could not be found” → editor code is in a runtime asmdef.
+
+# Tips and Tricks.
 
 **Character Maps**
 
@@ -393,7 +439,7 @@ On the flip side, contracting an animation in Unity risks having the editor drop
 
 >Stretching and contracting an animation in Spriter has its risks as well.  As discussed above, creators will often place a key just 1 ms after another with the intention of instantly changing the key value(s).  Stretching the animation in this case will likely (see above) cause the value to tween between the two keys, rather than being instant.  So be mindful in either case.
 
-## Known Issues.
+# Known Issues.
 
 During an import, having a Spriter project open in the Spriter application can (infrequently) cause the import to fail.  You will get an error regarding file access.  You may need to close the Spriter application in this case.
 
@@ -401,7 +447,7 @@ The Unity editor doesn't track changes to a prefab properly.  If you play, previ
 
 Unity's `Animator Controller` preview window has several known issues that can make it difficult to work with when trying to adjust things such as transition timing.
 
-## The `Resize Spriter Project` Utility
+# The `Resize Spriter Project` Utility
 
 Many commercial Spriter projects include oversized image files--far larger than needed for typical game use. Simply resizing these images with third-party tools isn’t enough: the Spriter `.scml` file must also be updated to reflect the new dimensions.
 
@@ -440,17 +486,29 @@ Click `Create` to generate the output.
 
 Once the output files are generated, Unity will kick-off an import.  This includes the image files and the newly created `.scml` file.  Because of this, the Stui import window will pop-up.  You can import the new Spriter project at this time or close the import window and do it at some later time.
 
-## License.
+# The Origins of this Project
+
+This project started out as a custom fork of the [Spriter2UnityDX](https://github.com/Dharengo/Spriter2UnityDX) project.  You will still find references to the original project (such as its name) in this project.  Much of the original code still remains but has been refactored in some way.
+
+The original project has been abandoned for many years.  Because of this, the custom fork was made into a standalone Github project and renamed to `Stui` to help distinguish between the two projects.
+
+Stui revived the original Spriter2UnityDX project and added a lot of new functionality.  It has also fixed all of the issues known to affect the original project.
+
+Other than new features and bug fixes, the main focus of Stui is on animation visual fidelity.  That is, matching Spriter's animation playback as much as practical.  To be honest, the animations created by the original Spriter2UnityDX project practically _never_ matched those of the corresponding Spriter project.
+
+Stui aims to be lightweight and allocation-free.  The generated native Unity animations require some 'adaptor' or 'glue-type' of components to faithfully match the Spriter animations but they should be very performant.
+
+# License.
 
 This project is licensed under the MIT License.  See the [LICENSE.TXT](https://github.com/TerminalJack/stui/blob/master/LICENSE.TXT) file for full details.
 
 This project also incorporates portions of code from the Spriter2UnityDX project.  The original author provided an open‑use permission statement allowing unrestricted reuse and modification.  For transparency and attribution, the original notice is preserved in [THIRD_PARTY_NOTICES.md](https://github.com/TerminalJack/stui/blob/master/THIRD_PARTY_NOTICES.md).
 
-## Credits.
+# Credits.
 
 I, [TerminalJack](https://github.com/TerminalJack), would like to thank the original creator of the Spriter2UnityDX project, [Dharengo](https://github.com/Dharengo) as well as contributors to the project [rfadeev](https://github.com/rfadeev) and [Mazku](https://github.com/Mazku).
 
-## FAQs.
+# FAQs.
 
 ### Why are the animation clips set to a sample rate of 1000?  Isn't that a little excessive?
 
@@ -458,7 +516,7 @@ The sample rate is set to 1000 due to the fact that that is Spriter's effective 
 
 Using the same sample rate as Spriter also allows Unity to be frame-for-frame identical to Spriter.  You will find the keys at the exact same frame time in Unity as you do in Spriter.
 
-## Development Resources
+# Development Resources
 
 If you are developing, maintaining, or troubleshooting Stui, then you may find these resources useful.
 
@@ -468,11 +526,11 @@ If you are developing, maintaining, or troubleshooting Stui, then you may find t
 * Stui Spriter [Entity Relationship Diagram](https://terminaljack.github.io/stui/Stui%20ERD/Stui%20Spriter%20Entity%20Relationship%20Diagram.pdf)
 * Free and paid Spriter project files can be found [here](https://opengameart.org/art-search?keys=spriter), [here](https://craftpix.net/?s=spriter), and [here](https://www.gamedeveloperstudio.com/).
 
-### Extra Logging
+## Extra Logging
 
 You can enable additional logging for Spriter project imports.  At the moment, only the `SpriterEntityInfo` class emits this extra debugging output.  (One of the class' key objectives is to log information regarding .scml files.)  To turn it on, add the symbol `ENABLE_STUI_DEBUG_LOGS` to your project’s **Scripting Define Symbols**.  If the importer doesn't do something that you expect it to do then the logs may provide some insight.
 
-### SCML File Inspector
+## SCML File Inspector
 
 If you cloned the full Stui project (that is, you didn't install via the Unity package) then you will have access to the `SCML File Inspector` development utility.
 
