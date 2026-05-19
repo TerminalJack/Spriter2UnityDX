@@ -22,7 +22,8 @@ namespace Stui.Extras
         public enum ClipPlayOrder
         {
             OrderByName,
-            RandomOrder
+            RandomizeOnce,
+            RandomizeEachCycle
         }
 
         [Tooltip("The number of seconds to play each clip.")]
@@ -36,7 +37,7 @@ namespace Stui.Extras
         public bool _forceLooping = false;
 
         [Tooltip("The order in which to play the clips.")]
-        public ClipPlayOrder playOrder = ClipPlayOrder.RandomOrder;
+        public ClipPlayOrder playOrder = ClipPlayOrder.RandomizeEachCycle;
 
         [Tooltip("The labels will cause garbage to be created each frame so disabling them during profiling and such can be useful.")]
         public bool showLabel = true;
@@ -83,20 +84,25 @@ namespace Stui.Extras
                     .OrderBy(c => c.name)
                     .ToList();
 
-                if (playOrder == ClipPlayOrder.RandomOrder)
+                if (playOrder == ClipPlayOrder.RandomizeOnce || playOrder == ClipPlayOrder.RandomizeEachCycle)
                 {
-                    int n = _clips.Count;
-
-                    while (n > 1)
-                    {
-                        n--;
-                        int k = Random.Range(0, n + 1);
-
-                        AnimationClip temp = _clips[k];
-                        _clips[k] = _clips[n];
-                        _clips[n] = temp;
-                    }
+                    ShuffleClips();
                 }
+            }
+        }
+
+        void ShuffleClips()
+        {
+            int n = _clips.Count;
+
+            while (n > 1)
+            {
+                n--;
+                int k = Random.Range(0, n + 1);
+
+                AnimationClip temp = _clips[k];
+                _clips[k] = _clips[n];
+                _clips[n] = temp;
             }
         }
 
@@ -116,6 +122,11 @@ namespace Stui.Extras
                 yield return new WaitForSeconds(timePerClip);
 
                 _clipIndex = (_clipIndex + 1) % _clips.Count;
+
+                if (_clipIndex == 0 && playOrder == ClipPlayOrder.RandomizeEachCycle)
+                {
+                    ShuffleClips();
+                }
             }
         }
 
