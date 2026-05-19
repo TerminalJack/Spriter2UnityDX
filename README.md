@@ -28,7 +28,7 @@ You have two simple options for installation: grab the UnityPackage from Release
 
 > The default installation location is `Assets/Stui/` but you can rename the folder and/or move it into another folder such as `Assets/Plugins/` or `Assets/3rdParty/`.
 
-This asset uses assembly definition (asmdef) files, which keep the Stui asset files separate from your project.  This prevents Unity from recompiling the Stui code each time your project compiles.  If _your_ project uses asmdef files as well then see the section [Assembly Definitions](#assembly-definitions) for instructions on how to add references to the STUI assemblies to your project.  If your project doesn't use asmdef files then there is nothing you will need to do to make use of Stui's assemblies.  Unity will handle them automatically.
+This asset uses assembly definition (`asmdef`) files, which keep the Stui asset files separate from your project.  This prevents Unity from recompiling the Stui code each time your project compiles.  If _your_ project uses `asmdef` files as well then see the section [Assembly Definitions](#assembly-definitions) for instructions on how to add references to the Stui assemblies to your project.  If your project doesn't use `asmdef` files then there is nothing you will need to do to make use of Stui's assemblies.  Unity will handle them automatically.
 
 # Quick Start!
 
@@ -54,7 +54,7 @@ Drop one of these prefabs into the `Scene` view.  Open Unity's `Animation` windo
 
 A quick and easy way to play through all of a prefab's animation clips is to use the `Clip Runner` component.  You'll find this component in the `Extras/` folder.  Put a `Clip Runner` component on the root of the game object.  (Where the `Animator` component is located.)
 
-![Clip Runner Component](docs/Images/ClipRunner.png)
+![Clip Runner Component](docs/Images/ClipRunnerV2.png)
 
 Leave the properties as-is and run the scene.  (Leave the `Cross Fade` property unchecked, in particular.)  This will run each of the animation clips in the game view.
 
@@ -123,7 +123,7 @@ The `Spriter Import Options` window will appear whenever you either, a) drop a S
 
 You'll be given the option to set the options shown in the figure below.
 
-![Import Options Window](docs/Images/SpriterImportOptionsWindow.png)
+![Import Options Window](docs/Images/SpriterImportOptionsWindowV2.png)
 
 Once you have selected the appropriate options, click the `Import` button to proceed with the import.  Click `Cancel` to dismiss the window and cancel the import.
 
@@ -132,6 +132,10 @@ Unless you have a specific need to change the `Pixels Per Unit` value, it is bes
 The `Direct Sprite Swapping` checkbox should be disabled if you intend to a) use texture controllers and/or b) create character maps.  See the description for the `Texture Controller` component for more information.
 
 If your Spriter project has any entities that define Character Maps then enabling `Create Character Maps` will add a `Character Map Controller` component to the root of those prefabs.
+
+The `Animate Bone Scales` option, when checked, will ensure that Spriter animations that use this feature look as similar as possible when played back in Unity.  There is a trade-off, however, in terms of both performance and resources.  Additional components and animation curves are required to support this feature.
+
+If the `Animate Bone Scales` option is checked but not needed then the additional components and animation curves will *not* be created and there will not be any performance penalty.  If this option is disabled and there are one or more animations that use bone scaling then the scales will be baked-in for each keyframe and there will be no tweening of the bone scales for the affected keys.  Many times this is sufficient but be sure to examine the output closely in this case.
 
 The `Animation Import Style` dropdown has the two options: `Nested In Prefab` and `Separate Folder`.  If you select `Separate Folder`, a prefab's animation clips will be placed in a subfolder named "{*prefabName*}_Anims".
 
@@ -209,7 +213,7 @@ Applies all of the maps in the `ActiveMapNames` list.  The mapping defined in `B
 
 ## `Dynamic Pivot 2D`
 
-![Dynamic Pivot 2D Image](docs/Images/TransformWithDynamicPivot.png)
+![Dynamic Pivot 2D Image](docs/Images/TransformWithDynamicPivotV2.png)
 
 A Dynamic Pivot 2D component will be used in the case where--if in any of an entity's animations--a sprite uses a pivot point that is different than its default.  The entity's animation clips will then have animation curves that set the pivot's `X` and `Y` properties as appropriate.
 
@@ -217,7 +221,7 @@ When a Dynamic Pivot 2D component is used the sprite renderer will be placed on 
 
 ## `Texture Controller`
 
-![Texture Controller Image](docs/Images/SpriteRendererWithTextureController.png)
+![Texture Controller Image](docs/Images/SpriteRendererWithTextureControllerV2.png)
 
 >Whether `Texture Controllers` are created, or not, is determined at the time of import.  Uncheck the `Direct Sprite Swapping` checkbox to create texture controllers.
 
@@ -343,7 +347,7 @@ Unity automatically:
 
 # Tips and Tricks.
 
-**Character Maps**
+## **Character Maps**
 
 Leveraging Spriter's powerful character map feature is a great way to make imports faster and builds smaller.
 
@@ -353,7 +357,7 @@ If you are using 3rd-party Spriter projects then check to see if they have alrea
 
 Once you have a Spriter project that is configured with character maps then use that particular Spriter project in your Unity project(s) and create prefabs (or prefab variants) based on the imported prefab(s) and make the appropriate character mappings in the Unity inspector.
 
-**Sprite Atlases**
+## **Sprite Atlases**
 
 The single biggest performance boost you can gain with the prefabs generated from Spriter is to use a `Sprite Atlas` with them.  If you create an empty scene, throw a prefab into the scene view, click run, and click the `Stats` button, you will notice that the number of batches (basically draw calls) is more-or-less the same as the number of visible sprites that the Spriter entity is composed of.  This can be dozens!
 
@@ -365,7 +369,7 @@ Many commercial Spriter projects come with images that are much bigger than you 
 
 >If you need to resize a Spriter project and you don't have Spriter Pro, or, you just find it more convenient to work in the Unity editor then there is a `Resize Spriter Project` utility included with Stui.  See the section on it for more details.
 
-**Mip Maps**
+## **Mip Maps**
 
 >From Wikipedia: In computer graphics, a mipmap (mip being an acronym of the Latin phrase multum in parvo, meaning "much in little") is a pre-calculated, optimized sequence of images, each of which has an image resolution which is a factor of two smaller than the previous.  Their use is known as mipmapping.
 
@@ -379,7 +383,7 @@ Another option to fix this is to use Spriter Pro's `Save as resized project` fea
 
 >This is actually a bit more complicated than it is made out to be since this assumes that you are either a) supporting just a single resolution for your game, or b) will generate separate image sets (and atlases) for each of the resolutions you intend to support.  A good 'middle ground' is to use Spriter Pro's `Save as resized project` feature or Stui's `Resize Spriter Project` utility, to generate pixel perfect images at your game's maximum supported resolution **and** enable mip maps.
 
-**A Strategy for Keeping Customizations out of Generated Prefabs**
+## **A Strategy for Keeping Customizations out of Generated Prefabs**
 
 Because it is likely that you will eventually need to regenerate a prefab, it is advised that you be mindful about any customizations that you make to the prefab.  Ideally, you want no customizations at all.  This way you will be able to simply delete the old prefab and reimport without fear of losing any of them.
 
@@ -405,13 +409,13 @@ Doing this minimizes the number of customizations that you will have to do to th
 
 > Technically speaking, the above procedure, for the most part, can be used to embed one prefab instance inside another.  The result would be similar to Spriter's sub-entity feature.  Keeping the sprite sorting order of the two (or more) entities under control is left as an exercise to the reader.
 
-## Caveats.
+# Caveats.
 
-### Editing Animations in Unity vs. Spriter
+## Editing Animations in Unity vs. Spriter
 
 While the importer strives to convert your Spriter projects into Unity animations, it doesn't necessarily focus on making those animations easy to edit in Unity.  You will likely find that it is better to continue using Spriter for animation creation and editing.
 
-### A 1 ms Difference in Keys is not the same as Instant/Constant Easing
+## A 1 ms Difference in Keys is not the same as Instant/Constant Easing
 
 Spriter animators will frequently place a key just 1 ms after another with the intention of the change between the two keys being instantaneous.  This may be the case in the Spriter application but if you look at the imported curve in Unity it will have the same type of easing that was specified in the Spriter project--which will most likely be `linear` easing.
 
@@ -421,7 +425,7 @@ A good way to know if these particular keys will be a problem is to use Spriter 
 
 The fix for this issue is to simply mark the first of the two timeline keys as `instant` in Spriter.
 
-### Timing Sensitivity and Import Optimization
+## Timing Sensitivity and Import Optimization
 
 Before importing, it is a good idea to check each of the animations in Spriter and make any corrections to timing in the Spriter project instead of making them in Unity after importing.  The importer will make certain optimizations based on an animation's timing.  Because of this, it is important that the Spriter project's timing be a good representation of what will be used in your Unity project.
 
@@ -429,7 +433,7 @@ For example, an animation with a length of 120 ms (just over 7 frames at 60 fps)
 
 This is particularly important when you are using the `Animate Bone Scales` feature.  The importer will decide whether to apply the feature, or not, based on the Spriter project's timing.  It will not bother tweening bone scales when it determines that the change will be too quick to be perceived by the human eye.
 
-### Keyframe Structure and Stretching/Contracting Animations
+## Keyframe Structure and Stretching/Contracting Animations
 
 If you need to expand or contract an animation, prefer to do so in Spriter rather than in Unity.  For parent and pivot changes, Spriter actually uses two keys (for several properties) that have the exact same time.
 
